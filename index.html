@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>商品保质期临期提醒系统</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.3/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --warning-color: #f9a826;
+            --danger-color: #ef476f;
+            --success-color: #06d6a0;
+            --info-color: #118ab2;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        .container {
+            max-width: 1400px;
+            padding-top: 1rem;
+            padding-bottom: 2rem;
+        }
+        
+        h1 {
+            color: var(--primary-color);
+            font-weight: 700;
+            margin-bottom: 1.5rem !important;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid var(--primary-color);
+        }
+        
+        .nav-tabs {
+            border-bottom: 2px solid #dee2e6;
+            margin-bottom: 1.5rem;
+        }
+        
+        .nav-tabs .nav-link {
+            font-weight: 600;
+            border: none;
+            color: #6c757d;
+            padding: 0.75rem 1.25rem;
+            transition: all 0.3s;
+        }
+        
+        .nav-tabs .nav-link:hover {
+            color: var(--primary-color);
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color);
+            background-color: transparent;
+            border-bottom: 3px solid var(--primary-color);
+        }
+        
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-color), #3a56d4);
+            border-bottom: none;
+            padding: 1rem 1.25rem;
+            position: relative;
+        }
+        
+        .card-header.bg-warning {
+            background: linear-gradient(135deg, var(--warning-color), #e69900);
+        }
+        
+        .card-header.bg-success {
+            background: linear-gradient(135deg, var(--success-color), #05c090);
+        }
+        
+        .card-header.bg-info {
+            background: linear-gradient(135deg, var(--info-color), #0f7a9d);
+        }
+        
+        .card-header.bg-secondary {
+            background: linear-gradient(135deg, #6c757d, #5a6268);
+        }
+        
+        .card-header.bg-light {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            color: #495057;
+        }
+        
+        .card-header h5 {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+        
+        .refresh-btn {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 0.25rem 0.75rem;
+            font-size: 0.85rem;
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            transform: translateY(-50%) rotate(180deg);
+        }
+        
+        .result-box {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: var(--primary-color);
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+        }
+        
+        .table {
+            margin-bottom: 0;
+        }
+        
+        .table thead th {
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+            background-color: #f8f9fa;
+            padding: 0.75rem 1rem;
+        }
+        
+        .table tbody td {
+            padding: 0.75rem 1rem;
+            vertical-align: middle;
+            border-bottom: 1px solid #f1f3f4;
+        }
+        
+        .table-hover tbody tr:hover {
+            background-color: rgba(67, 97, 238, 0.05);
+            cursor: pointer;
+        }
+        
+        .badge {
+            font-weight: 600;
+            padding: 0.35rem 0.65rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+        }
+        
+        .status-expired {
+            background-color: rgba(239, 71, 111, 0.1);
+            color: var(--danger-color);
+            border: 1px solid rgba(239, 71, 111, 0.2);
+        }
+        
+        .status-warning {
+            background-color: rgba(249, 168, 38, 0.1);
+            color: var(--warning-color);
+            border: 1px solid rgba(249, 168, 38, 0.2);
+        }
+        
+        .status-normal {
+            background-color: rgba(6, 214, 160, 0.1);
+            color: var(--success-color);
+            border: 1px solid rgba(6, 214, 160, 0.2);
+        }
+        
+        .location-badge {
+            background-color: #e9ecef;
+            color: #495057;
+            font-family: monospace;
+        }
+        
+        .btn {
+            border-radius: 8px;
+            font-weight: 600;
+            padding: 0.5rem 1.25rem;
+            transition: all 0.3s;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), #3a56d4);
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #3a56d4, #2e46b8);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        }
+        
+        .btn-lg {
+            padding: 0.75rem 1.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.85rem;
+        }
+        
+        .btn-group .btn {
+            border-radius: 6px;
+        }
+        
+        .is-valid {
+            border-color: var(--success-color) !important;
+            box-shadow: 0 0 0 0.25rem rgba(6, 214, 160, 0.25);
+        }
+        
+        .is-invalid {
+            border-color: var(--danger-color) !important;
+            box-shadow: 0 0 0 0.25rem rgba(239, 71, 111, 0.25);
+        }
+        
+        .form-text {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        
+        .alert {
+            border-radius: 10px;
+            border: none;
+            padding: 1rem 1.25rem;
+        }
+        
+        .global-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            min-width: 300px;
+            z-index: 1060;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
+        
+        .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+        
+        .modal-header {
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            border-bottom: none;
+            padding: 1.25rem;
+        }
+        
+        .modal-body {
+            padding: 1.25rem;
+        }
+        
+        .modal-footer {
+            border-top: 1px solid #e9ecef;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            padding: 1rem 1.25rem;
+        }
+        
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+        
+        .progress-bar {
+            border-radius: 4px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 0.5rem;
+            }
+            
+            h1 {
+                font-size: 1.75rem;
+                margin-bottom: 1rem !important;
+            }
+            
+            .nav-tabs .nav-link {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.9rem;
+            }
+            
+            .card-header {
+                padding: 0.75rem 1rem;
+            }
+            
+            .card-header h5 {
+                font-size: 1rem;
+                padding-right: 40px;
+            }
+            
+            .refresh-btn {
+                right: 10px;
+                padding: 0.2rem 0.6rem;
+                font-size: 0.8rem;
+            }
+            
+            .table-responsive {
+                font-size: 0.85rem;
+            }
+            
+            .table thead th,
+            .table tbody td {
+                padding: 0.5rem;
+            }
+            
+            .btn {
+                padding: 0.4rem 0.8rem;
+            }
+            
+            .btn-lg {
+                padding: 0.6rem 1rem;
+                font-size: 1rem;
+            }
+            
+            .badge {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.7rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .row.g-3 > [class*="col-"] {
+                margin-bottom: 0.5rem;
+            }
+            
+            .btn-group {
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+            
+            .btn-group .btn {
+                width: 100%;
+                border-radius: 6px;
+            }
+        }
+        
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 1020;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(67, 97, 238, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+        
+        .empty-state h5 {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .sku-input-group {
+            position: relative;
+        }
+        
+        .sku-input-group .form-control {
+            padding-right: 45px;
+        }
+        
+        .sku-input-group .input-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- 全局提示框容器 -->
+    <div id="globalAlertContainer" class="global-alert"></div>
+    
+    <div class="container">
+        <!-- 页面标题 -->
+        <div class="sticky-header">
+            <h1 class="text-center">
+                <i class="bi bi-clock-history me-2"></i>商品保质期临期提醒系统
+            </h1>
+            
+            <!-- 标签页导航 -->
+            <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="query-tab" data-bs-toggle="tab" data-bs-target="#query-tab-pane" type="button" role="tab">
+                        <i class="bi bi-search me-1"></i>商品查询
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="expiring-tab" data-bs-toggle="tab" data-bs-target="#expiring-tab-pane" type="button" role="tab">
+                        <i class="bi bi-exclamation-triangle me-1"></i>临期商品
+                        <span id="expiring-count" class="badge bg-danger ms-1">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-tab-pane" type="button" role="tab">
+                        <i class="bi bi-list-ul me-1"></i>所有商品
+                        <span id="all-count" class="badge bg-info ms-1">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="database-tab" data-bs-toggle="tab" data-bs-target="#database-tab-pane" type="button" role="tab">
+                        <i class="bi bi-database me-1"></i>商品数据库
+                        <span id="database-count" class="badge bg-secondary ms-1">0</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- 标签页内容 -->
+        <div class="tab-content" id="mainTabsContent">
+            <!-- 商品查询标签页 -->
+            <div class="tab-pane fade show active" id="query-tab-pane" role="tabpanel">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-box-seam me-1"></i>添加商品到库存</h5>
+                        <small class="opacity-75">输入5位SKU编码后自动匹配商品信息</small>
+                        <button class="btn btn-sm btn-light refresh-btn" onclick="loadProductDatabase()" title="刷新商品列表">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6 sku-input-group">
+                                <label for="skuInput" class="form-label">商品SKU编码 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="skuInput" 
+                                       placeholder="输入或选择5位SKU编码" 
+                                       maxlength="5"
+                                       pattern="[A-Za-z0-9]{5}"
+                                       required
+                                       autocomplete="off">
+                                <div class="input-icon">
+                                    <i class="bi bi-upc-scan"></i>
+                                </div>
+                                <div class="form-text">5位字母或数字组合的SKU编码</div>
+                                <div id="sku-suggestions" class="list-group position-absolute w-100" style="display: none; z-index: 1000;"></div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label for="productName" class="form-label">商品名称</label>
+                                <input type="text" class="form-control" id="productName" readonly>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label for="shelfLife" class="form-label">保质期(天)</label>
+                                <input type="number" class="form-control" id="shelfLife" readonly>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label for="reminderDays" class="form-label">临期提醒(天)</label>
+                                <input type="number" class="form-control" id="reminderDays" readonly>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label for="productionDate" class="form-label">生产日期 <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="productionDate" 
+                                       max="" 
+                                       required
+                                       title="请先输入有效的SKU编码">
+                                <div class="form-text">选择商品的生产日期</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-calculator me-1"></i>计算结果</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">到期日期</label>
+                                <div class="form-control result-box" id="expiryDate">-</div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">提醒日期</label>
+                                <div class="form-control result-box" id="reminderDate">-</div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">剩余天数</label>
+                                <div class="form-control result-box" id="remainingDays">-</div>
+                            </div>
+                        </div>
+                        <div class="mt-4" id="statusIndicator">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span id="statusText" class="fw-bold">状态：正常</span>
+                                <span id="percentageText" class="text-muted">0%</span>
+                            </div>
+                            <div class="progress">
+                                <div id="statusProgress" class="progress-bar" role="progressbar" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary btn-lg" id="saveBtn" disabled>
+                        <i class="bi bi-save me-1"></i>保存到库存
+                    </button>
+                </div>
+                
+                <div class="alert alert-info mt-3 mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>操作提示：</strong> 
+                    输入SKU编码后会自动查询商品信息，选择生产日期后系统会自动计算到期日期和剩余天数。
+                    相同SKU和相同生产日期的商品会被检测为重复记录。
+                </div>
+            </div>
+            
+            <!-- 临期商品标签页 -->
+            <div class="tab-pane fade" id="expiring-tab-pane" role="tabpanel">
+                <div class="card">
+                    <div class="card-header bg-warning text-white">
+                        <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-1"></i>临期/过期商品列表</h5>
+                        <button class="btn btn-sm btn-light refresh-btn" onclick="loadExpiringProducts()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover mb-0">
+                                <thead class="table-warning">
+                                    <tr>
+                                        <th width="120">SKU</th>
+                                        <th>商品名称</th>
+                                        <th width="120">库位</th>
+                                        <th width="110">生产日期</th>
+                                        <th width="110">到期日期</th>
+                                        <th width="100">剩余天数</th>
+                                        <th width="100">状态</th>
+                                        <th width="150">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="expiringTable">
+                                    <tr>
+                                        <td colspan="8" class="text-center py-5">
+                                            <div class="loading-spinner"></div>
+                                            <div class="mt-2">加载中...</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-warning mt-3 mb-0">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    此列表显示已过期或即将过期的商品（剩余天数小于等于临期提醒天数），请及时处理。
+                </div>
+            </div>
+            
+            <!-- 所有商品标签页 -->
+            <div class="tab-pane fade" id="all-tab-pane" role="tabpanel">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-list-ul me-1"></i>库存商品列表</h5>
+                        <small class="opacity-75">按剩余保质期排序（从少到多）</small>
+                        <button class="btn btn-sm btn-light refresh-btn" onclick="loadAllProducts()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover mb-0">
+                                <thead class="table-info">
+                                    <tr>
+                                        <th width="120">SKU</th>
+                                        <th>商品名称</th>
+                                        <th width="120">库位</th>
+                                        <th width="110">生产日期</th>
+                                        <th width="110">到期日期</th>
+                                        <th width="100">剩余天数</th>
+                                        <th width="100">状态</th>
+                                        <th width="150">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allTable">
+                                    <tr>
+                                        <td colspan="8" class="text-center py-5">
+                                            <div class="loading-spinner"></div>
+                                            <div class="mt-2">加载中...</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 商品数据库标签页 -->
+            <div class="tab-pane fade" id="database-tab-pane" role="tabpanel">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0"><i class="bi bi-plus-circle me-1"></i>新增商品到数据库</h5>
+                        <small class="opacity-75">添加新商品的基本信息</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label for="newSku" class="form-label">商品SKU编码 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="newSku" 
+                                       placeholder="输入5位SKU编码" 
+                                       maxlength="5"
+                                       pattern="[A-Za-z0-9]{5}"
+                                       required>
+                                <div class="form-text">5位字母或数字组合，不可重复</div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label for="newName" class="form-label">商品名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="newName" 
+                                       placeholder="输入商品名称" 
+                                       required>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label for="newShelfLife" class="form-label">保质期(天) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="newShelfLife" 
+                                       placeholder="输入保质期天数" 
+                                       min="1" 
+                                       required>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label for="newReminderDays" class="form-label">临期提醒(天) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="newReminderDays" 
+                                       placeholder="输入提前提醒天数" 
+                                       min="0" 
+                                       required>
+                                <div class="form-text">0表示不提醒</div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label for="newLocation" class="form-label">存放库位 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="newLocation" 
+                                       placeholder="输入商品存放位置" 
+                                       required>
+                            </div>
+                            <div class="col-12">
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary btn-lg" id="addProductBtn">
+                                        <i class="bi bi-check-circle me-1"></i>添加到商品数据库
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mt-3">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-database me-1"></i>商品数据库</h5>
+                        <button class="btn btn-sm btn-outline-secondary refresh-btn" onclick="loadProductDatabase()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th width="120">SKU</th>
+                                        <th>商品名称</th>
+                                        <th width="100">保质期(天)</th>
+                                        <th width="120">临期提醒(天)</th>
+                                        <th width="120">库位</th>
+                                        <th width="150">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="productDatabaseTable">
+                                    <tr>
+                                        <td colspan="6" class="text-center py-5">
+                                            <div class="loading-spinner"></div>
+                                            <div class="mt-2">加载中...</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 删除确认模态框 -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-1"></i> 确认删除</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    确定要删除这条记录吗？此操作不可恢复。
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                        <i class="bi bi-trash me-1"></i> 确认删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 重复记录确认模态框 -->
+    <div class="modal fade" id="duplicateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-1"></i> 发现重复记录</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="duplicateBody">
+                    <!-- 内容由JavaScript动态填充 -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="cancelDuplicate()">
+                        <i class="bi bi-x-circle me-1"></i> 取消
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="confirmDuplicate()">
+                        <i class="bi bi-plus-circle me-1"></i> 继续添加
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 编辑商品模态框 -->
+    <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-1"></i> 编辑商品信息</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editSku" class="form-label">商品SKU</label>
+                        <input type="text" class="form-control" id="editSku" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editName" class="form-label">商品名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="editName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editShelfLife" class="form-label">保质期(天) <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="editShelfLife" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editReminderDays" class="form-label">临期提醒(天) <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="editReminderDays" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editLocation" class="form-label">库位 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="editLocation" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveEditBtn">
+                        <i class="bi bi-check-circle me-1"></i> 保存更改
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 加载动画 -->
+    <div id="loadingOverlay" style="display: none;">
+        <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
+             style="background-color: rgba(255, 255, 255, 0.8); z-index: 9999;">
+            <div class="text-center">
+                <div class="loading-spinner" style="width: 50px; height: 50px; border-width: 5px;"></div>
+                <div class="mt-3 fw-bold">处理中...</div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.2.3/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

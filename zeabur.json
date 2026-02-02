@@ -1,0 +1,14 @@
+{
+  "name": "product-expiry-system",
+  "version": "1.0.0",
+  "build": {
+    "command": "npm install"
+  },
+  "deploy": {
+    "static": "."
+  },
+  "env": {
+    "DB_TYPE": "sqlite",
+    "DB_PATH": "data.db"
+  }
+}
