@@ -419,16 +419,11 @@
         }
         
         .sku-input-group .form-control {
-            padding-right: 45px;
+            padding-right: 12px;
         }
         
-        .sku-input-group .input-icon {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--primary-color);
-            font-size: 1.2rem;
+        .search-box {
+            margin-bottom: 1rem;
         }
     </style>
 </head>
@@ -478,7 +473,7 @@
                 <div class="card">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0"><i class="bi bi-box-seam me-1"></i>添加商品到库存</h5>
-                        <small class="opacity-75">输入5位SKU编码后自动匹配商品信息</small>
+                        <small class="opacity-75">输入5位数字SKU编码后自动匹配商品信息</small>
                         <button class="btn btn-sm btn-light refresh-btn" onclick="loadProductDatabase()" title="刷新商品列表">
                             <i class="bi bi-arrow-clockwise"></i>
                         </button>
@@ -487,16 +482,16 @@
                         <div class="row g-3">
                             <div class="col-12 col-md-6 sku-input-group">
                                 <label for="skuInput" class="form-label">商品SKU编码 <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="skuInput" 
-                                       placeholder="输入或选择5位SKU编码" 
+                                <input type="tel" 
+                                       inputmode="numeric"
+                                       class="form-control" 
+                                       id="skuInput" 
+                                       placeholder="输入5位数字SKU编码" 
                                        maxlength="5"
-                                       pattern="[A-Za-z0-9]{5}"
+                                       pattern="[0-9]{5}"
                                        required
                                        autocomplete="off">
-                                <div class="input-icon">
-                                    <i class="bi bi-upc-scan"></i>
-                                </div>
-                                <div class="form-text">5位字母或数字组合的SKU编码</div>
+                                <div class="form-text">5位数字SKU编码</div>
                                 <div id="sku-suggestions" class="list-group position-absolute w-100" style="display: none; z-index: 1000;"></div>
                             </div>
                             <div class="col-12 col-md-6">
@@ -660,12 +655,15 @@
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
                                 <label for="newSku" class="form-label">商品SKU编码 <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="newSku" 
-                                       placeholder="输入5位SKU编码" 
+                                <input type="tel" 
+                                       inputmode="numeric"
+                                       class="form-control" 
+                                       id="newSku" 
+                                       placeholder="输入5位数字SKU编码" 
                                        maxlength="5"
-                                       pattern="[A-Za-z0-9]{5}"
+                                       pattern="[0-9]{5}"
                                        required>
-                                <div class="form-text">5位字母或数字组合，不可重复</div>
+                                <div class="form-text">5位数字，不可重复</div>
                             </div>
                             <div class="col-12 col-md-6">
                                 <label for="newName" class="form-label">商品名称 <span class="text-danger">*</span></label>
@@ -706,11 +704,20 @@
                 </div>
                 
                 <div class="card mt-3">
-                    <div class="card-header bg-light">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="bi bi-database me-1"></i>商品数据库</h5>
-                        <button class="btn btn-sm btn-outline-secondary refresh-btn" onclick="loadProductDatabase()">
-                            <i class="bi bi-arrow-clockwise"></i>
-                        </button>
+                        <div class="search-box d-flex align-items-center">
+                            <input type="tel" 
+                                   inputmode="numeric"
+                                   class="form-control form-control-sm me-2" 
+                                   id="productSearch" 
+                                   placeholder="搜索SKU"
+                                   style="width: 150px;"
+                                   maxlength="5">
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn" onclick="loadProductDatabase()">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
