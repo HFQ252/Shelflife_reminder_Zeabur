@@ -42,8 +42,35 @@ function initApp() {
 // 绑定所有事件监听器
 function bindEvents() {
     // SKU 输入事件
-    document.getElementById('skuInput').addEventListener('input', handleSkuInput);
-    document.getElementById('skuInput').addEventListener('focus', showSkuSuggestions);
+    const skuInput = document.getElementById('skuInput');
+    skuInput.addEventListener('input', handleSkuInput);
+    skuInput.addEventListener('focus', showSkuSuggestions);
+    
+    // 限制只能输入数字
+    skuInput.addEventListener('keypress', function(e) {
+        if (!/[0-9]/.test(e.key)) {
+            e.preventDefault();
+        }
+    });
+    
+    // 5位数字输入完成后自动聚焦到日期选择框
+    skuInput.addEventListener('input', function(e) {
+        if (this.value.length === 5 && /^[0-9]{5}$/.test(this.value)) {
+            setTimeout(() => {
+                document.getElementById('productionDate').focus();
+                document.getElementById('productionDate').showPicker();
+            }, 100);
+        }
+    });
+    
+    // 商品数据库搜索框
+    const productSearch = document.getElementById('productSearch');
+    productSearch.addEventListener('input', handleProductSearch);
+    productSearch.addEventListener('keypress', function(e) {
+        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete') {
+            e.preventDefault();
+        }
+    });
     
     // 生产日期变化事件
     document.getElementById('productionDate').addEventListener('change', calculateDates);
@@ -123,10 +150,9 @@ function refreshCurrentTab() {
 
 // 处理SKU输入
 async function handleSkuInput(e) {
-    const sku = e.target.value.toUpperCase();
-    e.target.value = sku;
+    const sku = e.target.value;
     
-    if (sku.length === 5 && /^[A-Z0-9]{5}$/.test(sku)) {
+    if (sku.length === 5 && /^[0-9]{5}$/.test(sku)) {
         await lookupProduct(sku);
     } else {
         clearProductFields();
@@ -145,7 +171,7 @@ function showSkuSuggestions() {
     }
     
     const filtered = currentProducts.filter(p => 
-        p.sku.toLowerCase().includes(value) || 
+        p.sku.includes(value) || 
         p.name.toLowerCase().includes(value)
     ).slice(0, 5);
     
@@ -390,7 +416,7 @@ async function saveRecord() {
 
 // 添加新商品到数据库
 async function addNewProduct() {
-    const sku = document.getElementById('newSku').value.toUpperCase();
+    const sku = document.getElementById('newSku').value;
     const name = document.getElementById('newName').value.trim();
     const shelfLife = parseInt(document.getElementById('newShelfLife').value);
     const reminderDays = parseInt(document.getElementById('newReminderDays').value);
@@ -402,8 +428,8 @@ async function addNewProduct() {
         return;
     }
     
-    if (!/^[A-Z0-9]{5}$/.test(sku)) {
-        showAlert('SKU必须是5位字母或数字组合', 'warning');
+    if (!/^[0-9]{5}$/.test(sku)) {
+        showAlert('SKU必须是5位数字组合', 'warning');
         return;
     }
     
@@ -460,6 +486,72 @@ async function addNewProduct() {
         showAlert(`添加商品失败: ${error.message}`, 'danger');
     } finally {
         hideLoading();
+    }
+}
+
+// 处理商品数据库搜索
+function handleProductSearch(e) {
+    const searchTerm = e.target.value;
+    
+    if (searchTerm.length === 5 && /^[0-9]{5}$/.test(searchTerm)) {
+        searchProductBySku(searchTerm);
+    } else if (searchTerm.length === 0) {
+        loadProductDatabase();
+    } else {
+        filterProducts(searchTerm);
+    }
+}
+
+// 搜索商品
+async function searchProductBySku(sku) {
+    try {
+        const response = await fetch(`/api/products?sku=${sku}`);
+        if (!response.ok) throw new Error('搜索失败');
+        
+        const product = await response.json();
+        if (product) {
+            // 显示单个商品
+            renderProductDatabaseTable([product]);
+        } else {
+            document.getElementById('productDatabaseTable').innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-5">
+                        <div class="empty-state">
+                            <i class="bi bi-search text-muted"></i>
+                            <h5 class="mt-3">未找到商品</h5>
+                            <p class="text-muted">未找到SKU为 ${sku} 的商品</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+    } catch (error) {
+        console.error('搜索商品失败:', error);
+        showAlert('搜索商品失败', 'danger');
+    }
+}
+
+// 过滤商品
+function filterProducts(searchTerm) {
+    const filtered = currentProducts.filter(p => 
+        p.sku.includes(searchTerm) || 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    if (filtered.length === 0) {
+        document.getElementById('productDatabaseTable').innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-5">
+                    <div class="empty-state">
+                        <i class="bi bi-search text-muted"></i>
+                        <h5 class="mt-3">未找到匹配的商品</h5>
+                        <p class="text-muted">请尝试其他搜索词</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+    } else {
+        renderProductDatabaseTable(filtered);
     }
 }
 
@@ -525,6 +617,9 @@ async function loadProductDatabase() {
         
         // 更新计数
         document.getElementById('database-count').textContent = products.length;
+        
+        // 清空搜索框
+        document.getElementById('productSearch').value = '';
     } catch (error) {
         console.error('加载商品数据库失败:', error);
         document.getElementById('productDatabaseTable').innerHTML = `
