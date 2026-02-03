@@ -671,7 +671,7 @@ function renderExpiringTable(records) {
                 <td>${getStatusBadge(remainingDays, record.reminder_days)}</td>
                 <td>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" onclick="showDeleteConfirm(${record.id}, '${record.sku}', '${record.name}')">
+                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${record.id}, '${record.sku}', '${record.name}', false)">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -732,7 +732,7 @@ function renderAllTable(records) {
                 <td>${getStatusBadge(remainingDays, record.reminder_days)}</td>
                 <td>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" onclick="showDeleteConfirm(${record.id}, '${record.sku}', '${record.name}')">
+                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${record.id}, '${record.sku}', '${record.name}', false)">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -805,6 +805,9 @@ function showDeleteConfirm(id, sku, name, isProduct = false) {
         </small></p>
     `;
     
+    // 设置删除类型标志
+    document.getElementById('confirmDeleteBtn').dataset.deleteType = isProductDb ? 'product' : 'record';
+    
     const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
     modal.show();
 }
@@ -814,9 +817,15 @@ async function confirmDelete() {
     if (!deleteRecordId) return;
     
     const modal = bootstrap.Modal.getInstance(document.getElementById('confirmModal'));
-    const url = window.location.href.includes('product') ? 
-                `/api/products/${deleteRecordId}` : 
-                `/api/records/${deleteRecordId}`;
+    const deleteType = document.getElementById('confirmDeleteBtn').dataset.deleteType;
+    
+    // 根据删除类型确定URL
+    let url;
+    if (deleteType === 'product') {
+        url = `/api/products/${deleteRecordId}`;
+    } else {
+        url = `/api/records/${deleteRecordId}`;
+    }
     
     showLoading();
     
@@ -826,33 +835,40 @@ async function confirmDelete() {
         });
         
         if (response.ok) {
-            showAlert('删除成功', 'success');
-            
-            // 根据当前标签页刷新数据
-            const activeTab = document.querySelector('.nav-link.active').id;
-            switch(activeTab) {
-                case 'expiring-tab':
-                    loadExpiringProducts();
-                    break;
-                case 'all-tab':
-                    loadAllProducts();
-                    break;
-                case 'database-tab':
-                    loadProductDatabase();
-                    break;
-                default:
-                    loadProductDatabase();
+            const result = await response.json();
+            if (result.deleted || result.changes > 0) {
+                showAlert('删除成功', 'success');
+                
+                // 根据当前标签页刷新数据
+                const activeTab = document.querySelector('.nav-link.active').id;
+                switch(activeTab) {
+                    case 'expiring-tab':
+                        await loadExpiringProducts();
+                        break;
+                    case 'all-tab':
+                        await loadAllProducts();
+                        break;
+                    case 'database-tab':
+                        await loadProductDatabase();
+                        break;
+                    default:
+                        await loadAllProducts();
+                }
+            } else {
+                showAlert('未找到要删除的记录', 'warning');
             }
         } else {
-            throw new Error('删除失败');
+            const error = await response.text();
+            throw new Error(error || '删除失败');
         }
     } catch (error) {
         console.error('删除失败:', error);
-        showAlert('删除失败', 'danger');
+        showAlert(`删除失败: ${error.message}`, 'danger');
     } finally {
         hideLoading();
         modal.hide();
         deleteRecordId = null;
+        document.getElementById('confirmDeleteBtn').dataset.deleteType = '';
     }
 }
 
