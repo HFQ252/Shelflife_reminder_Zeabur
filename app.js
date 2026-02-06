@@ -120,7 +120,7 @@ function bindEvents() {
     }
 }
 
-// 绑定删除事件（事件委托）
+// 绑定删除事件（事件委托）- 修复版本
 function bindDeleteEvents() {
     document.addEventListener('click', function(e) {
         const deleteBtn = e.target.closest('.btn-outline-danger');
@@ -129,19 +129,6 @@ function bindDeleteEvents() {
         // 检查是否有tr父元素
         const row = deleteBtn.closest('tr');
         if (!row) return;
-        
-        // 获取按钮的onclick属性
-        const onclickAttr = deleteBtn.getAttribute('onclick');
-        if (!onclickAttr) return;
-        
-        // 解析onclick中的参数
-        const match = onclickAttr.match(/showDeleteConfirm\(([^)]+)\)/);
-        if (!match) return;
-        
-        const params = match[1].split(',').map(param => param.trim());
-        const id = parseInt(params[0]);
-        
-        if (!id) return;
         
         // 获取表格类型
         const table = row.closest('table');
@@ -154,38 +141,54 @@ function bindDeleteEvents() {
             }
         }
         
-        // 从行中获取数据
+        // 从行中直接获取数据（关键修复：从页面显示中获取剩余天数）
         const cells = row.querySelectorAll('td');
         if (cells.length < 6) return;
         
-        let recordData = {};
+        const sku = cells[0].textContent.trim();
+        const name = cells[1].textContent.trim();
+        const location = cells[2].querySelector('.location-badge')?.textContent.trim() || '';
+        const productionDate = cells[3].textContent.trim();
+        const expiryDate = cells[4].textContent.trim();
         
-        if (isProduct) {
-            // 商品数据库表格
-            recordData = {
-                sku: cells[0].textContent.trim(),
-                name: cells[1].textContent.trim(),
-                shelf_life: parseInt(cells[2].textContent.trim()) || 0,
-                reminder_days: parseInt(cells[3].textContent.trim()) || 0,
-                location: cells[4].querySelector('.location-badge')?.textContent.trim() || ''
-            };
-        } else {
-            // 库存记录表格
-            const productionDate = cells[3].textContent.trim();
-            const shelfLife = parseInt(document.getElementById('shelfLife').value) || 0;
-            const reminderDays = parseInt(document.getElementById('reminderDays').value) || 0;
-            
-            recordData = {
-                sku: cells[0].textContent.trim(),
-                name: cells[1].textContent.trim(),
-                location: cells[2].querySelector('.location-badge')?.textContent.trim() || '',
-                production_date: productionDate,
-                shelf_life: shelfLife,
-                reminder_days: reminderDays
-            };
+        // 关键修复：直接从页面显示的剩余天数文本中提取数字
+        const remainingDaysText = cells[5].textContent.trim();
+        let remainingDays = 0;
+        
+        // 提取数字（处理可能的中文和符号）
+        const daysMatch = remainingDaysText.match(/-?\d+/);
+        if (daysMatch) {
+            remainingDays = parseInt(daysMatch[0]);
         }
         
-        showDeleteConfirm(id, recordData, isProduct);
+        // 获取状态
+        const statusBadge = cells[6].innerHTML;
+        
+        // 获取ID - 从onclick属性获取
+        let id = null;
+        const onclickAttr = deleteBtn.getAttribute('onclick');
+        if (onclickAttr) {
+            const match = onclickAttr.match(/showDeleteConfirm\((\d+)/);
+            if (match) {
+                id = parseInt(match[1]);
+            }
+        }
+        
+        if (id) {
+            // 构建完整的记录数据
+            const recordData = {
+                id,
+                sku,
+                name,
+                location,
+                production_date: productionDate,
+                expiry_date: expiryDate,
+                remaining_days: remainingDays, // 使用页面显示的剩余天数
+                status_html: statusBadge
+            };
+            
+            showDeleteConfirm(id, recordData, isProduct);
+        }
     });
 }
 
@@ -1153,7 +1156,7 @@ function renderProductDatabaseTable(products) {
     tbody.innerHTML = html;
 }
 
-// 显示删除确认模态框（显示商品详情）
+// 显示删除确认模态框（显示商品详情）- 修复剩余天数显示
 function showDeleteConfirm(id, recordData = null, isProduct = false) {
     // 清理之前的模态框状态
     cleanupModalBackdrop();
@@ -1211,15 +1214,21 @@ function showDeleteConfirm(id, recordData = null, isProduct = false) {
     } else {
         // 库存记录中的商品
         if (recordData) {
-            // 计算到期日期和剩余天数（使用中国时间）
+            // 计算到期日期和剩余天数
             const productionDate = recordData.production_date ? 
                 new Date(recordData.production_date + 'T00:00:00+08:00') : new Date();
             const expiryDate = new Date(productionDate);
             expiryDate.setDate(productionDate.getDate() + (recordData.shelf_life || 0));
             
-            // const remainingDays = calculateRemainingDays(recordData.production_date, recordData.shelf_life);
-            const remainingDays = recordData.remaining_days || calculateRemainingDays(recordData.production_date, recordData.shelf_life);
-            const statusBadge = getStatusBadge(remainingDays, recordData.reminder_days);
+            // 关键修复：使用从页面获取的剩余天数
+            let remainingDays = recordData.remaining_days || 0;
+            
+            // 如果从recordData获取不到，尝试重新计算
+            if (remainingDays === 0 && recordData.production_date && recordData.shelf_life) {
+                remainingDays = calculateRemainingDays(recordData.production_date, recordData.shelf_life);
+            }
+            
+            const statusBadge = getStatusBadge(remainingDays, recordData.reminder_days || 0);
             
             detailsHtml = `
                 <div class="delete-details">
@@ -1448,13 +1457,18 @@ function formatDate(date) {
 function calculateRemainingDays(productionDate, shelfLife) {
     if (!productionDate || !shelfLife) return 0;
     
-    const prodDate = new Date(productionDate + 'T00:00:00+08:00');
-    const expiryDate = new Date(prodDate);
-    expiryDate.setDate(prodDate.getDate() + shelfLife);
-    
-    const nowChina = getChinaDateTime();
-    const diffTime = expiryDate - nowChina;
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    try {
+        const prodDate = new Date(productionDate + 'T00:00:00+08:00');
+        const expiryDate = new Date(prodDate);
+        expiryDate.setDate(prodDate.getDate() + parseInt(shelfLife));
+        
+        const nowChina = getChinaDateTime();
+        const diffTime = expiryDate - nowChina;
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    } catch (error) {
+        console.error('计算剩余天数出错:', error);
+        return 0;
+    }
 }
 
 // 获取当前中国日期时间
