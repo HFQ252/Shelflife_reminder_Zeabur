@@ -1217,7 +1217,8 @@ function showDeleteConfirm(id, recordData = null, isProduct = false) {
             const expiryDate = new Date(productionDate);
             expiryDate.setDate(productionDate.getDate() + (recordData.shelf_life || 0));
             
-            const remainingDays = calculateRemainingDays(recordData.production_date, recordData.shelf_life);
+            // const remainingDays = calculateRemainingDays(recordData.production_date, recordData.shelf_life);
+            const remainingDays = recordData.remaining_days || calculateRemainingDays(recordData.production_date, recordData.shelf_life);
             const statusBadge = getStatusBadge(remainingDays, recordData.reminder_days);
             
             detailsHtml = `
