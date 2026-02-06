@@ -20,14 +20,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.key === 'Escape') {
             closeAllModals();
         }
+        
+        // Enter 键导航
+        if (e.key === 'Enter') {
+            handleEnterNavigation(e);
+        }
     });
 });
 
 // 初始化应用
 function initApp() {
-    // 设置生产日期最大值为今天
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('productionDate').max = today;
+    // 设置生产日期最大值为今天（中国时间）
+    const todayChina = getChinaDate();
+    document.getElementById('productionDate').max = todayChina;
     
     // 绑定事件监听器
     bindEvents();
@@ -43,40 +48,15 @@ function initApp() {
 function bindEvents() {
     // SKU 输入事件
     const skuInput = document.getElementById('skuInput');
+    skuInput.addEventListener('click', clearSkuInput);
     skuInput.addEventListener('input', handleSkuInput);
     skuInput.addEventListener('focus', showSkuSuggestions);
     
-    // 限制只能输入数字
-    skuInput.addEventListener('keypress', function(e) {
-        if (!/[0-9]/.test(e.key)) {
-            e.preventDefault();
-        }
-    });
-    
-    // 5位数字输入完成后自动聚焦到日期选择框
-    skuInput.addEventListener('input', function(e) {
-        if (this.value.length === 5 && /^[0-9]{5}$/.test(this.value)) {
-            setTimeout(() => {
-                document.getElementById('productionDate').focus();
-                document.getElementById('productionDate').showPicker();
-            }, 100);
-        }
-    });
-    
-    // 商品数据库搜索框
-    const productSearch = document.getElementById('productSearch');
-    productSearch.addEventListener('input', handleProductSearch);
-    productSearch.addEventListener('keypress', function(e) {
-        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete') {
-            e.preventDefault();
-        }
-    });
-    
     // 生产日期变化事件
-    document.getElementById('productionDate').addEventListener('change', calculateDates);
+    document.getElementById('productionDate').addEventListener('change', handleDateChange);
     
     // 保存按钮事件
-    document.getElementById('saveBtn').addEventListener('click', saveProductRecord);
+    document.getElementById('saveBtn').addEventListener('click', handleSave);
     
     // 新增商品按钮事件
     document.getElementById('addProductBtn').addEventListener('click', addNewProduct);
@@ -148,14 +128,101 @@ function refreshCurrentTab() {
     }
 }
 
+// 清空SKU输入框
+function clearSkuInput() {
+    const skuInput = document.getElementById('skuInput');
+    skuInput.value = '';
+    skuInput.focus();
+    clearProductFields();
+    highlightElement(skuInput);
+}
+
 // 处理SKU输入
 async function handleSkuInput(e) {
-    const sku = e.target.value;
+    const sku = e.target.value.toUpperCase();
+    e.target.value = sku;
     
-    if (sku.length === 5 && /^[0-9]{5}$/.test(sku)) {
+    // 移除高亮动画
+    e.target.classList.remove('focus-highlight');
+    
+    if (sku.length === 5 && /^[A-Z0-9]{5}$/.test(sku)) {
         await lookupProduct(sku);
+        
+        // 自动跳转到日期选择框
+        setTimeout(() => {
+            const dateInput = document.getElementById('productionDate');
+            if (dateInput && !dateInput.disabled) {
+                dateInput.focus();
+                dateInput.showPicker(); // 自动弹出日期选择器
+                highlightElement(dateInput);
+            }
+        }, 300);
     } else {
         clearProductFields();
+    }
+}
+
+// 处理日期选择变化
+function handleDateChange() {
+    const productionDate = document.getElementById('productionDate').value;
+    
+    if (productionDate) {
+        calculateDates();
+        
+        // 自动跳转到保存按钮
+        setTimeout(() => {
+            const saveBtn = document.getElementById('saveBtn');
+            if (saveBtn && !saveBtn.disabled) {
+                saveBtn.focus();
+                highlightElement(saveBtn);
+            }
+        }, 300);
+    }
+}
+
+// 处理保存按钮点击
+async function handleSave() {
+    await saveProductRecord();
+    
+    // 保存完成后跳转回SKU输入框
+    setTimeout(() => {
+        const skuInput = document.getElementById('skuInput');
+        if (skuInput) {
+            skuInput.value = '';
+            skuInput.focus();
+            highlightElement(skuInput);
+        }
+    }, 500);
+}
+
+// 高亮元素
+function highlightElement(element) {
+    element.classList.add('focus-highlight');
+    setTimeout(() => {
+        element.classList.remove('focus-highlight');
+    }, 1000);
+}
+
+// 处理Enter键导航
+function handleEnterNavigation(e) {
+    const activeElement = document.activeElement;
+    
+    if (activeElement.id === 'skuInput' && activeElement.value.length === 5) {
+        e.preventDefault();
+        const dateInput = document.getElementById('productionDate');
+        if (dateInput && !dateInput.disabled) {
+            dateInput.focus();
+            dateInput.showPicker();
+        }
+    } else if (activeElement.id === 'productionDate') {
+        e.preventDefault();
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn && !saveBtn.disabled) {
+            saveBtn.focus();
+        }
+    } else if (activeElement.id === 'saveBtn') {
+        e.preventDefault();
+        saveBtn.click();
     }
 }
 
@@ -165,13 +232,13 @@ function showSkuSuggestions() {
     const suggestions = document.getElementById('sku-suggestions');
     const value = input.value.toLowerCase();
     
-    if (value.length < 2) {
+    if (value.length < 1) {
         suggestions.style.display = 'none';
         return;
     }
     
     const filtered = currentProducts.filter(p => 
-        p.sku.includes(value) || 
+        p.sku.toLowerCase().includes(value) || 
         p.name.toLowerCase().includes(value)
     ).slice(0, 5);
     
@@ -239,7 +306,7 @@ function clearProductFields() {
     updateStatusIndicator(0, 0);
 }
 
-// 计算日期
+// 计算日期（使用中国时间）
 function calculateDates() {
     const productionDate = document.getElementById('productionDate').value;
     const shelfLife = parseInt(document.getElementById('shelfLife').value) || 0;
@@ -250,15 +317,17 @@ function calculateDates() {
         return;
     }
     
-    const prodDate = new Date(productionDate);
+    // 使用中国时间计算
+    const prodDate = new Date(productionDate + 'T00:00:00+08:00'); // 中国时区
     const expiryDate = new Date(prodDate);
     expiryDate.setDate(prodDate.getDate() + shelfLife);
     
     const reminderDate = new Date(expiryDate);
     reminderDate.setDate(expiryDate.getDate() - reminderDays);
     
-    const today = new Date();
-    const remainingDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+    // 获取当前中国时间
+    const nowChina = getChinaDateTime();
+    const remainingDays = Math.ceil((expiryDate - nowChina) / (1000 * 60 * 60 * 24));
     
     // 更新显示
     document.getElementById('expiryDate').textContent = formatDate(expiryDate);
@@ -416,7 +485,7 @@ async function saveRecord() {
 
 // 添加新商品到数据库
 async function addNewProduct() {
-    const sku = document.getElementById('newSku').value;
+    const sku = document.getElementById('newSku').value.toUpperCase();
     const name = document.getElementById('newName').value.trim();
     const shelfLife = parseInt(document.getElementById('newShelfLife').value);
     const reminderDays = parseInt(document.getElementById('newReminderDays').value);
@@ -428,8 +497,8 @@ async function addNewProduct() {
         return;
     }
     
-    if (!/^[0-9]{5}$/.test(sku)) {
-        showAlert('SKU必须是5位数字组合', 'warning');
+    if (!/^[A-Z0-9]{5}$/.test(sku)) {
+        showAlert('SKU必须是5位字母或数字组合', 'warning');
         return;
     }
     
@@ -486,72 +555,6 @@ async function addNewProduct() {
         showAlert(`添加商品失败: ${error.message}`, 'danger');
     } finally {
         hideLoading();
-    }
-}
-
-// 处理商品数据库搜索
-function handleProductSearch(e) {
-    const searchTerm = e.target.value;
-    
-    if (searchTerm.length === 5 && /^[0-9]{5}$/.test(searchTerm)) {
-        searchProductBySku(searchTerm);
-    } else if (searchTerm.length === 0) {
-        loadProductDatabase();
-    } else {
-        filterProducts(searchTerm);
-    }
-}
-
-// 搜索商品
-async function searchProductBySku(sku) {
-    try {
-        const response = await fetch(`/api/products?sku=${sku}`);
-        if (!response.ok) throw new Error('搜索失败');
-        
-        const product = await response.json();
-        if (product) {
-            // 显示单个商品
-            renderProductDatabaseTable([product]);
-        } else {
-            document.getElementById('productDatabaseTable').innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center py-5">
-                        <div class="empty-state">
-                            <i class="bi bi-search text-muted"></i>
-                            <h5 class="mt-3">未找到商品</h5>
-                            <p class="text-muted">未找到SKU为 ${sku} 的商品</p>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
-    } catch (error) {
-        console.error('搜索商品失败:', error);
-        showAlert('搜索商品失败', 'danger');
-    }
-}
-
-// 过滤商品
-function filterProducts(searchTerm) {
-    const filtered = currentProducts.filter(p => 
-        p.sku.includes(searchTerm) || 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    
-    if (filtered.length === 0) {
-        document.getElementById('productDatabaseTable').innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center py-5">
-                    <div class="empty-state">
-                        <i class="bi bi-search text-muted"></i>
-                        <h5 class="mt-3">未找到匹配的商品</h5>
-                        <p class="text-muted">请尝试其他搜索词</p>
-                    </div>
-                </td>
-            </tr>
-        `;
-    } else {
-        renderProductDatabaseTable(filtered);
     }
 }
 
@@ -617,9 +620,6 @@ async function loadProductDatabase() {
         
         // 更新计数
         document.getElementById('database-count').textContent = products.length;
-        
-        // 清空搜索框
-        document.getElementById('productSearch').value = '';
     } catch (error) {
         console.error('加载商品数据库失败:', error);
         document.getElementById('productDatabaseTable').innerHTML = `
@@ -633,7 +633,7 @@ async function loadProductDatabase() {
     }
 }
 
-// 渲染临期商品表格
+// 渲染临期商品表格（修复到期日期显示问题）
 function renderExpiringTable(records) {
     const tbody = document.getElementById('expiringTable');
     
@@ -653,16 +653,21 @@ function renderExpiringTable(records) {
     }
     
     const html = records.map(record => {
+        // 修复：使用中国时间计算到期日期
+        const productionDate = new Date(record.production_date + 'T00:00:00+08:00');
+        const expiryDate = new Date(productionDate);
+        expiryDate.setDate(productionDate.getDate() + record.shelf_life);
+        
         const remainingDays = calculateRemainingDays(record.production_date, record.shelf_life);
         const status = getStatus(remainingDays, record.reminder_days);
         
         return `
             <tr class="${remainingDays <= 0 ? 'table-danger' : 'table-warning'}">
                 <td><strong>${record.sku}</strong></td>
-                <td>${record.name}</td>
+                <td style="word-break: break-word;">${record.name}</td>
                 <td><span class="badge location-badge">${record.location}</span></td>
-                <td>${formatDate(new Date(record.production_date))}</td>
-                <td>${formatDate(new Date(record.production_date + record.shelf_life * 24 * 60 * 60 * 1000))}</td>
+                <td>${formatDate(productionDate)}</td>
+                <td>${formatDate(expiryDate)}</td>
                 <td>
                     <span class="fw-bold ${remainingDays <= 0 ? 'text-danger' : 'text-warning'}">
                         ${remainingDays}
@@ -671,7 +676,7 @@ function renderExpiringTable(records) {
                 <td>${getStatusBadge(remainingDays, record.reminder_days)}</td>
                 <td>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${record.id}, '${record.sku}', '${record.name}', false)">
+                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${record.id}, ${JSON.stringify(record)})">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -710,18 +715,22 @@ function renderAllTable(records) {
     });
     
     const html = sortedRecords.map(record => {
+        // 修复：使用中国时间计算到期日期
+        const productionDate = new Date(record.production_date + 'T00:00:00+08:00');
+        const expiryDate = new Date(productionDate);
+        expiryDate.setDate(productionDate.getDate() + record.shelf_life);
+        
         const remainingDays = calculateRemainingDays(record.production_date, record.shelf_life);
-        const status = getStatus(remainingDays, record.reminder_days);
         const rowClass = remainingDays <= 0 ? 'table-danger' : 
                         remainingDays <= record.reminder_days ? 'table-warning' : '';
         
         return `
             <tr class="${rowClass}">
                 <td><strong>${record.sku}</strong></td>
-                <td>${record.name}</td>
+                <td style="word-break: break-word;">${record.name}</td>
                 <td><span class="badge location-badge">${record.location}</span></td>
-                <td>${formatDate(new Date(record.production_date))}</td>
-                <td>${formatDate(new Date(record.production_date + record.shelf_life * 24 * 60 * 60 * 1000))}</td>
+                <td>${formatDate(productionDate)}</td>
+                <td>${formatDate(expiryDate)}</td>
                 <td>
                     <span class="fw-bold ${remainingDays <= 0 ? 'text-danger' : 
                                       remainingDays <= record.reminder_days ? 'text-warning' : 
@@ -732,7 +741,7 @@ function renderAllTable(records) {
                 <td>${getStatusBadge(remainingDays, record.reminder_days)}</td>
                 <td>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${record.id}, '${record.sku}', '${record.name}', false)">
+                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${record.id}, ${JSON.stringify(record)})">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -776,7 +785,7 @@ function renderProductDatabaseTable(products) {
                         <button class="btn btn-outline-primary" onclick="showEditModal(${product.id})">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${product.id}, '${product.sku}', '${product.name}', true)">
+                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${product.id}, ${JSON.stringify(product)}, true)">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -788,25 +797,97 @@ function renderProductDatabaseTable(products) {
     tbody.innerHTML = html;
 }
 
-// 显示删除确认模态框
-function showDeleteConfirm(id, sku, name, isProduct = false) {
+// 显示删除确认模态框（显示商品详情）
+function showDeleteConfirm(id, recordData, isProduct = false) {
     deleteRecordId = id;
     const isProductDb = isProduct;
     
+    let detailsHtml = '';
+    
+    if (isProductDb) {
+        // 商品数据库中的商品
+        detailsHtml = `
+            <div class="delete-details">
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">SKU：</span>
+                    <span class="delete-detail-value">${recordData.sku}</span>
+                </div>
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">名称：</span>
+                    <span class="delete-detail-value">${recordData.name}</span>
+                </div>
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">库位：</span>
+                    <span class="delete-detail-value"><span class="badge location-badge">${recordData.location}</span></span>
+                </div>
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">保质期：</span>
+                    <span class="delete-detail-value">${recordData.shelf_life} 天</span>
+                </div>
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">提醒天数：</span>
+                    <span class="delete-detail-value">${recordData.reminder_days} 天</span>
+                </div>
+            </div>
+        `;
+    } else {
+        // 库存记录中的商品
+        // 计算到期日期和剩余天数（使用中国时间）
+        const productionDate = new Date(recordData.production_date + 'T00:00:00+08:00');
+        const expiryDate = new Date(productionDate);
+        expiryDate.setDate(productionDate.getDate() + recordData.shelf_life);
+        
+        const remainingDays = calculateRemainingDays(recordData.production_date, recordData.shelf_life);
+        const statusBadge = getStatusBadge(remainingDays, recordData.reminder_days);
+        
+        detailsHtml = `
+            <div class="delete-details">
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">SKU：</span>
+                    <span class="delete-detail-value">${recordData.sku}</span>
+                </div>
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">名称：</span>
+                    <span class="delete-detail-value">${recordData.name}</span>
+                </div>
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">库位：</span>
+                    <span class="delete-detail-value"><span class="badge location-badge">${recordData.location}</span></span>
+                </div>
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">生产日期：</span>
+                    <span class="delete-detail-value">${formatDate(productionDate)}</span>
+                </div>
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">到期日期：</span>
+                    <span class="delete-detail-value">${formatDate(expiryDate)}</span>
+                </div>
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">剩余天数：</span>
+                    <span class="delete-detail-value fw-bold ${remainingDays <= 0 ? 'text-danger' : 
+                                              remainingDays <= recordData.reminder_days ? 'text-warning' : 
+                                              'text-success'}">
+                        ${remainingDays} 天
+                    </span>
+                </div>
+                <div class="delete-detail-item">
+                    <span class="delete-detail-label">状态：</span>
+                    <span class="delete-detail-value">${statusBadge}</span>
+                </div>
+            </div>
+        `;
+    }
+    
     document.getElementById('modalBody').innerHTML = `
         <p>确定要删除以下${isProductDb ? '商品' : '记录'}吗？此操作不可恢复。</p>
-        <div class="alert alert-danger">
-            <strong>SKU：</strong> ${sku}<br>
-            <strong>${isProductDb ? '商品名称' : '记录名称'}：</strong> ${name}
-        </div>
-        <p class="text-danger mb-0"><small>
-            <i class="bi bi-exclamation-triangle me-1"></i>
-            ${isProductDb ? '删除商品将同时删除所有相关记录！' : '删除后数据将无法恢复！'}
-        </small></p>
+        ${detailsHtml}
+        <p class="text-danger mb-0 mt-2">
+            <small>
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                ${isProductDb ? '删除商品将同时删除所有相关记录！' : '删除后数据将无法恢复！'}
+            </small>
+        </p>
     `;
-    
-    // 设置删除类型标志
-    document.getElementById('confirmDeleteBtn').dataset.deleteType = isProductDb ? 'product' : 'record';
     
     const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
     modal.show();
@@ -817,15 +898,9 @@ async function confirmDelete() {
     if (!deleteRecordId) return;
     
     const modal = bootstrap.Modal.getInstance(document.getElementById('confirmModal'));
-    const deleteType = document.getElementById('confirmDeleteBtn').dataset.deleteType;
-    
-    // 根据删除类型确定URL
-    let url;
-    if (deleteType === 'product') {
-        url = `/api/products/${deleteRecordId}`;
-    } else {
-        url = `/api/records/${deleteRecordId}`;
-    }
+    const url = window.location.href.includes('product') ? 
+                `/api/products/${deleteRecordId}` : 
+                `/api/records/${deleteRecordId}`;
     
     showLoading();
     
@@ -835,40 +910,33 @@ async function confirmDelete() {
         });
         
         if (response.ok) {
-            const result = await response.json();
-            if (result.deleted || result.changes > 0) {
-                showAlert('删除成功', 'success');
-                
-                // 根据当前标签页刷新数据
-                const activeTab = document.querySelector('.nav-link.active').id;
-                switch(activeTab) {
-                    case 'expiring-tab':
-                        await loadExpiringProducts();
-                        break;
-                    case 'all-tab':
-                        await loadAllProducts();
-                        break;
-                    case 'database-tab':
-                        await loadProductDatabase();
-                        break;
-                    default:
-                        await loadAllProducts();
-                }
-            } else {
-                showAlert('未找到要删除的记录', 'warning');
+            showAlert('删除成功', 'success');
+            
+            // 根据当前标签页刷新数据
+            const activeTab = document.querySelector('.nav-link.active').id;
+            switch(activeTab) {
+                case 'expiring-tab':
+                    loadExpiringProducts();
+                    break;
+                case 'all-tab':
+                    loadAllProducts();
+                    break;
+                case 'database-tab':
+                    loadProductDatabase();
+                    break;
+                default:
+                    loadProductDatabase();
             }
         } else {
-            const error = await response.text();
-            throw new Error(error || '删除失败');
+            throw new Error('删除失败');
         }
     } catch (error) {
         console.error('删除失败:', error);
-        showAlert(`删除失败: ${error.message}`, 'danger');
+        showAlert('删除失败', 'danger');
     } finally {
         hideLoading();
         modal.hide();
         deleteRecordId = null;
-        document.getElementById('confirmDeleteBtn').dataset.deleteType = '';
     }
 }
 
@@ -946,16 +1014,35 @@ async function saveProductEdit() {
 // 工具函数
 function formatDate(date) {
     if (!date || isNaN(date.getTime())) return '-';
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
+// 计算剩余天数（使用中国时间）
 function calculateRemainingDays(productionDate, shelfLife) {
-    const expiryDate = new Date(productionDate);
-    expiryDate.setDate(expiryDate.getDate() + shelfLife);
+    const prodDate = new Date(productionDate + 'T00:00:00+08:00');
+    const expiryDate = new Date(prodDate);
+    expiryDate.setDate(prodDate.getDate() + shelfLife);
     
-    const today = new Date();
-    const diffTime = expiryDate - today;
+    const nowChina = getChinaDateTime();
+    const diffTime = expiryDate - nowChina;
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+// 获取当前中国日期时间
+function getChinaDateTime() {
+    const now = new Date();
+    // 转换为中国时区时间（UTC+8）
+    const chinaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+    return chinaTime;
+}
+
+// 获取当前中国日期（YYYY-MM-DD格式）
+function getChinaDate() {
+    const chinaTime = getChinaDateTime();
+    return formatDate(chinaTime);
 }
 
 function getStatus(remainingDays, reminderDays) {
