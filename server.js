@@ -61,6 +61,13 @@ const db = new sqlite3.Database(dbPath, (err) => {
     }
 });
 
+// 获取中国时间
+function getChinaTime() {
+    const now = new Date();
+    // 中国时区为UTC+8
+    return new Date(now.getTime() + (8 * 60 * 60 * 1000));
+}
+
 // API路由
 
 // 获取所有商品记录
@@ -81,25 +88,42 @@ app.get('/api/records', (req, res) => {
     });
 });
 
-// 获取临期商品
+// 获取临期商品（使用中国时间计算）
 app.get('/api/records/expiring', (req, res) => {
-    const today = new Date().toISOString().split('T')[0];
+    const now = getChinaTime();
+    const today = now.toISOString().split('T')[0];
     
+    // 使用中国时间计算剩余天数
     const query = `
-        SELECT pr.*, p.location,
-               julianday(date(pr.production_date, '+' || pr.shelf_life || ' days')) - julianday('now') as remaining_days
+        SELECT 
+            pr.*, 
+            p.location,
+            -- 计算到期日期（使用中国时区）
+            date(pr.production_date, '+' || pr.shelf_life || ' days') as expiry_date,
+            -- 计算剩余天数（考虑中国时区）
+            julianday(date(pr.production_date, '+' || pr.shelf_life || ' days')) - julianday(?) as remaining_days
         FROM product_records pr
         JOIN products p ON pr.sku = p.sku
-        WHERE julianday(date(pr.production_date, '+' || pr.shelf_life || ' days')) - julianday('now') <= pr.reminder_days
+        WHERE julianday(date(pr.production_date, '+' || pr.shelf_life || ' days')) - julianday(?) <= pr.reminder_days
         ORDER BY remaining_days ASC
     `;
     
-    db.all(query, [], (err, rows) => {
+    db.all(query, [today, today], (err, rows) => {
         if (err) {
             res.status(500).json({ error: err.message });
             return;
         }
-        res.json(rows);
+        
+        // 格式化返回数据，确保有到期日期字段
+        const formattedRows = rows.map(row => {
+            return {
+                ...row,
+                expiry_date: row.expiry_date,
+                remaining_days: Math.floor(row.remaining_days)
+            };
+        });
+        
+        res.json(formattedRows);
     });
 });
 
@@ -172,12 +196,7 @@ app.delete('/api/records/:id', (req, res) => {
             res.status(500).json({ error: err.message });
             return;
         }
-        // 返回更清晰的响应
-        res.json({ 
-            deleted: this.changes > 0,
-            changes: this.changes,
-            id: id 
-        });
+        res.json({ deleted: this.changes > 0 });
     });
 });
 
@@ -279,19 +298,18 @@ app.delete('/api/products/:id', (req, res) => {
                 res.status(500).json({ error: err.message });
                 return;
             }
-            // 返回更清晰的响应
-            res.json({ 
-                deleted: this.changes > 0,
-                changes: this.changes,
-                id: id 
-            });
+            res.json({ deleted: this.changes > 0 });
         });
     });
 });
 
 // 健康检查
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        china_time: getChinaTime().toISOString()
+    });
 });
 
 // 服务前端应用
@@ -302,4 +320,6 @@ app.get('*', (req, res) => {
 // 启动服务器
 app.listen(PORT, () => {
     console.log(`服务器运行在 http://localhost:${PORT}`);
+    console.log(`当前服务器时间: ${new Date().toISOString()}`);
+    console.log(`中国时间: ${getChinaTime().toISOString()}`);
 });
