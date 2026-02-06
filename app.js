@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // ESC 关闭所有模态框
         if (e.key === 'Escape') {
+            e.preventDefault();
             closeAllModals();
         }
         
@@ -34,6 +35,9 @@ function initApp() {
     const todayChina = getChinaDate();
     document.getElementById('productionDate').max = todayChina;
     
+    // 清理可能的页面锁定状态
+    cleanupPageLock();
+    
     // 添加移动端特定样式
     if (isMobileDevice()) {
         addMobileStyles();
@@ -47,6 +51,31 @@ function initApp() {
     
     // 自动刷新数据（每5分钟）
     setInterval(refreshAllData, 5 * 60 * 1000);
+}
+
+// 清理页面锁定状态
+function cleanupPageLock() {
+    // 移除所有模态框背景
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => {
+        backdrop.remove();
+    });
+    
+    // 恢复页面滚动
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+    
+    // 移除body上的内联样式
+    document.body.removeAttribute('style');
+    
+    // 移除所有模态框的显示状态
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+    });
 }
 
 // 绑定所有事件监听器
@@ -400,6 +429,18 @@ function addMobileStyles() {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.25);
         }
+        
+        /* 模态框移动端优化 */
+        .modal-dialog {
+            max-height: 80vh;
+            margin: 10vh auto;
+        }
+        
+        .modal-body {
+            max-height: 60vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -467,6 +508,63 @@ function addTouchEvents() {
             this.classList.remove('active');
         });
     }
+    
+    // 防止模态框滚动锁定
+    preventModalScrollLock();
+}
+
+// 防止模态框滚动锁定
+function preventModalScrollLock() {
+    const modalElement = document.getElementById('confirmModal');
+    if (!modalElement) return;
+    
+    // 监听模态框显示事件
+    modalElement.addEventListener('show.bs.modal', function() {
+        // 确保页面状态正常
+        cleanupPageLock();
+    });
+    
+    // 监听模态框隐藏事件
+    modalElement.addEventListener('hidden.bs.modal', function() {
+        // 清理模态框背景
+        setTimeout(cleanupModalBackdrop, 150);
+    });
+    
+    // 监听触摸事件，防止背景滚动
+    modalElement.addEventListener('touchmove', function(e) {
+        // 如果内容可以滚动，允许滚动
+        const modalBody = this.querySelector('.modal-body');
+        if (modalBody && modalBody.scrollHeight > modalBody.clientHeight) {
+            // 如果已经滚动到顶部或底部，阻止默认行为
+            if (modalBody.scrollTop === 0 && e.touches[0].clientY > 0) {
+                e.preventDefault();
+            }
+            if (modalBody.scrollTop + modalBody.clientHeight >= modalBody.scrollHeight && 
+                e.touches[0].clientY < 0) {
+                e.preventDefault();
+            }
+        } else {
+            // 内容不能滚动，完全阻止
+            e.preventDefault();
+        }
+    }, { passive: false });
+}
+
+// 清理模态框背景层（修复页面锁定）
+function cleanupModalBackdrop() {
+    // 移除所有模态框背景
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => {
+        backdrop.remove();
+    });
+    
+    // 恢复页面滚动
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+    
+    // 移除body上的内联样式
+    document.body.removeAttribute('style');
 }
 
 // 显示SKU建议
@@ -688,14 +786,22 @@ async function confirmDuplicate() {
     if (duplicateCheckData) {
         await saveRecord();
         duplicateCheckData = null;
-        bootstrap.Modal.getInstance(document.getElementById('duplicateModal')).hide();
+        const modal = bootstrap.Modal.getInstance(document.getElementById('duplicateModal'));
+        if (modal) {
+            modal.hide();
+        }
+        cleanupModalBackdrop();
     }
 }
 
 // 取消重复添加
 function cancelDuplicate() {
     duplicateCheckData = null;
-    bootstrap.Modal.getInstance(document.getElementById('duplicateModal')).hide();
+    const modal = bootstrap.Modal.getInstance(document.getElementById('duplicateModal'));
+    if (modal) {
+        modal.hide();
+    }
+    cleanupModalBackdrop();
 }
 
 // 保存记录到数据库
@@ -1049,6 +1155,9 @@ function renderProductDatabaseTable(products) {
 
 // 显示删除确认模态框（显示商品详情）
 function showDeleteConfirm(id, recordData = null, isProduct = false) {
+    // 清理之前的模态框状态
+    cleanupModalBackdrop();
+    
     deleteRecordId = id;
     
     // 如果是商品数据库删除，需要获取完整商品信息
@@ -1171,7 +1280,23 @@ function showDeleteConfirm(id, recordData = null, isProduct = false) {
         </p>
     `;
     
-    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    // 确保页面可以滚动
+    document.body.style.overflow = '';
+    
+    // 显示模态框
+    const modalElement = document.getElementById('confirmModal');
+    const modal = new bootstrap.Modal(modalElement, {
+        backdrop: true,
+        keyboard: true,
+        focus: true
+    });
+    
+    // 监听模态框隐藏事件
+    modalElement.addEventListener('hidden.bs.modal', function() {
+        cleanupModalBackdrop();
+        deleteRecordId = null;
+    });
+    
     modal.show();
 }
 
@@ -1179,7 +1304,8 @@ function showDeleteConfirm(id, recordData = null, isProduct = false) {
 async function confirmDelete() {
     if (!deleteRecordId) return;
     
-    const modal = bootstrap.Modal.getInstance(document.getElementById('confirmModal'));
+    const modalElement = document.getElementById('confirmModal');
+    const modal = bootstrap.Modal.getInstance(modalElement);
     const url = window.location.href.includes('product') ? 
                 `/api/products/${deleteRecordId}` : 
                 `/api/records/${deleteRecordId}`;
@@ -1192,6 +1318,14 @@ async function confirmDelete() {
         });
         
         if (response.ok) {
+            // 先关闭模态框
+            if (modal) {
+                modal.hide();
+            }
+            
+            // 清理模态框背景（修复页面锁定）
+            cleanupModalBackdrop();
+            
             showAlert('删除成功', 'success');
             
             // 根据当前标签页刷新数据
@@ -1214,10 +1348,14 @@ async function confirmDelete() {
         }
     } catch (error) {
         console.error('删除失败:', error);
+        // 关闭模态框
+        if (modal) {
+            modal.hide();
+        }
+        cleanupModalBackdrop();
         showAlert('删除失败', 'danger');
     } finally {
         hideLoading();
-        modal.hide();
         deleteRecordId = null;
     }
 }
@@ -1281,7 +1419,10 @@ async function saveProductEdit() {
             loadProductDatabase();
             
             const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
-            modal.hide();
+            if (modal) {
+                modal.hide();
+            }
+            cleanupModalBackdrop();
         } else {
             throw new Error('更新失败');
         }
@@ -1377,12 +1518,23 @@ function closeAllModals() {
     const modals = document.querySelectorAll('.modal');
     modals.forEach(modal => {
         const bsModal = bootstrap.Modal.getInstance(modal);
-        if (bsModal) bsModal.hide();
+        if (bsModal) {
+            bsModal.hide();
+        }
     });
+    
+    // 清理背景层
+    setTimeout(cleanupModalBackdrop, 150);
 }
 
 function showAlert(message, type = 'info') {
     const container = document.getElementById('globalAlertContainer');
+    
+    // 移除旧的提示
+    const oldAlerts = container.querySelectorAll('.alert');
+    if (oldAlerts.length > 3) {
+        oldAlerts[0].remove();
+    }
     
     const alert = document.createElement('div');
     alert.className = `alert alert-${type} alert-dismissible fade show`;
