@@ -242,20 +242,27 @@ function refreshCurrentTab() {
     }
 }
 
-// 清空SKU输入框
+// 清空SKU输入框（修复移动端键盘问题）
 function clearSkuInput() {
     const skuInput = document.getElementById('skuInput');
     skuInput.value = '';
-    skuInput.focus();
+    
+    // 移动端优化：避免立即blur导致键盘消失
+    if (isMobileDevice()) {
+        // 延迟聚焦，确保键盘能正常显示
+        setTimeout(() => {
+            skuInput.focus();
+            // 确保选择位置在末尾
+            setTimeout(() => {
+                skuInput.setSelectionRange(skuInput.value.length, skuInput.value.length);
+            }, 50);
+        }, 100);
+    } else {
+        skuInput.focus();
+    }
+    
     clearProductFields();
     highlightElement(skuInput);
-    
-    // 移动端优化：关闭键盘（如果已打开）
-    if (isMobileDevice()) {
-        setTimeout(() => {
-            skuInput.blur();
-        }, 100);
-    }
 }
 
 // 处理SKU输入
@@ -273,17 +280,24 @@ async function handleSkuInput(e) {
         setTimeout(() => {
             const dateInput = document.getElementById('productionDate');
             if (dateInput && !dateInput.disabled) {
+                // 移动端优化：先移除SKU输入框的焦点
+                if (isMobileDevice()) {
+                    e.target.blur();
+                }
+                
                 dateInput.focus();
                 
                 // 移动端兼容：只在支持的设备上调用 showPicker()
                 if (dateInput.showPicker && isMobileDevice()) {
-                    try {
-                        dateInput.showPicker();
-                    } catch (error) {
-                        console.log('移动端日期选择器不支持自动弹出');
-                        // 在移动端显示提示
-                        showMobileDateHint();
-                    }
+                    setTimeout(() => {
+                        try {
+                            dateInput.showPicker();
+                        } catch (error) {
+                            console.log('移动端日期选择器不支持自动弹出');
+                            // 在移动端显示提示
+                            showMobileDateHint();
+                        }
+                    }, 300);
                 } else if (dateInput.showPicker) {
                     // PC端正常调用
                     dateInput.showPicker();
@@ -293,7 +307,9 @@ async function handleSkuInput(e) {
                 
                 // 如果是移动端，滚动到日期输入框可见
                 if (isMobileDevice()) {
-                    dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setTimeout(() => {
+                        dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 500);
                 }
             }
         }, 300);
@@ -340,12 +356,29 @@ async function handleSave() {
         const skuInput = document.getElementById('skuInput');
         if (skuInput) {
             skuInput.value = '';
-            skuInput.focus();
+            
+            // 移动端优化：避免立即聚焦导致键盘问题
+            if (isMobileDevice()) {
+                // 先移除焦点，再重新聚焦
+                skuInput.blur();
+                setTimeout(() => {
+                    skuInput.focus();
+                    // 确保选择位置在末尾
+                    setTimeout(() => {
+                        skuInput.setSelectionRange(skuInput.value.length, skuInput.value.length);
+                    }, 50);
+                }, 300);
+            } else {
+                skuInput.focus();
+            }
+            
             highlightElement(skuInput);
             
             // 如果是移动端，滚动到SKU输入框可见
             if (isMobileDevice()) {
-                skuInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => {
+                    skuInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 500);
             }
         }
     }, 500);
@@ -423,7 +456,7 @@ function addMobileStyles() {
         }
         
         /* 移动端输入框优化 */
-        .sku-input-group input[type="date"] {
+        input[type="date"] {
             font-size: 16px;
         }
         
@@ -443,6 +476,30 @@ function addMobileStyles() {
             max-height: 60vh;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+        }
+        
+        /* 移动端输入框防键盘闪烁优化 */
+        input, textarea {
+            -webkit-user-select: text !important;
+            user-select: text !important;
+        }
+        
+        /* 防止iOS缩放 */
+        @supports (-webkit-touch-callout: none) {
+            input, select, textarea {
+                font-size: 16px !important;
+            }
+        }
+        
+        /* 移动端触摸反馈优化 */
+        .form-control {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        
+        /* 防止移动端长按菜单 */
+        .form-control {
+            -webkit-touch-callout: default;
         }
     `;
     document.head.appendChild(style);
@@ -514,6 +571,37 @@ function addTouchEvents() {
     
     // 防止模态框滚动锁定
     preventModalScrollLock();
+    
+    // 移动端键盘控制优化
+    addMobileKeyboardControl();
+}
+
+// 添加移动端键盘控制
+function addMobileKeyboardControl() {
+    const skuInput = document.getElementById('skuInput');
+    if (!skuInput) return;
+    
+    // 监听输入框的触摸事件
+    skuInput.addEventListener('touchstart', function(e) {
+        // 确保输入框获得焦点
+        this.focus();
+        
+        // 在移动端，延迟设置选择位置
+        setTimeout(() => {
+            this.setSelectionRange(this.value.length, this.value.length);
+        }, 100);
+    });
+    
+    // 监听输入框的焦点事件
+    skuInput.addEventListener('focus', function() {
+        // 确保在移动端键盘能正常显示
+        if (isMobileDevice()) {
+            // 滚动到输入框可见
+            setTimeout(() => {
+                this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+    });
 }
 
 // 防止模态框滚动锁定
