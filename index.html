@@ -106,21 +106,6 @@
             margin: 0;
         }
         
-        .refresh-btn {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            padding: 0.25rem 0.75rem;
-            font-size: 0.85rem;
-            border-radius: 20px;
-            transition: all 0.3s;
-        }
-        
-        .refresh-btn:hover {
-            transform: translateY(-50%) rotate(180deg);
-        }
-        
         .result-box {
             background-color: #f8f9fa;
             font-weight: 600;
@@ -260,15 +245,6 @@
             }
         }
         
-        @keyframes fadeOut {
-            from {
-                opacity: 1;
-            }
-            to {
-                opacity: 0;
-            }
-        }
-        
         .modal-content {
             border-radius: 12px;
             border: none;
@@ -303,6 +279,7 @@
             border-radius: 4px;
         }
         
+        /* 移动端优化 */
         @media (max-width: 768px) {
             .container {
                 padding: 0.5rem;
@@ -324,13 +301,6 @@
             
             .card-header h5 {
                 font-size: 1rem;
-                padding-right: 40px;
-            }
-            
-            .refresh-btn {
-                right: 10px;
-                padding: 0.2rem 0.6rem;
-                font-size: 0.8rem;
             }
             
             .table-responsive {
@@ -340,6 +310,13 @@
             .table thead th,
             .table tbody td {
                 padding: 0.5rem;
+            }
+            
+            /* 移动端表格文字换行 */
+            .table td, .table th {
+                word-break: break-word;
+                overflow-wrap: break-word;
+                white-space: normal !important;
             }
             
             .btn {
@@ -419,11 +396,60 @@
         }
         
         .sku-input-group .form-control {
-            padding-right: 12px;
+            padding-right: 45px;
         }
         
-        .search-box {
-            margin-bottom: 1rem;
+        .sku-input-group .input-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+        
+        /* 自动跳转焦点样式 */
+        .focus-highlight {
+            animation: pulse 0.5s ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(67, 97, 238, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0); }
+        }
+        
+        /* 删除确认模态框样式优化 */
+        .delete-details {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+        }
+        
+        .delete-detail-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .delete-detail-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .delete-detail-label {
+            font-weight: 600;
+            color: #6c757d;
+            min-width: 80px;
+        }
+        
+        .delete-detail-value {
+            flex: 1;
+            text-align: right;
+            color: #495057;
         }
     </style>
 </head>
@@ -473,25 +499,22 @@
                 <div class="card">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0"><i class="bi bi-box-seam me-1"></i>添加商品到库存</h5>
-                        <small class="opacity-75">输入5位数字SKU编码后自动匹配商品信息</small>
-                        <button class="btn btn-sm btn-light refresh-btn" onclick="loadProductDatabase()" title="刷新商品列表">
-                            <i class="bi bi-arrow-clockwise"></i>
-                        </button>
+                        <small class="opacity-75">输入5位SKU编码后自动匹配商品信息</small>
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
                             <div class="col-12 col-md-6 sku-input-group">
                                 <label for="skuInput" class="form-label">商品SKU编码 <span class="text-danger">*</span></label>
-                                <input type="tel" 
-                                       inputmode="numeric"
-                                       class="form-control" 
-                                       id="skuInput" 
-                                       placeholder="输入5位数字SKU编码" 
+                                <input type="text" class="form-control" id="skuInput" 
+                                       placeholder="输入5位SKU编码" 
                                        maxlength="5"
-                                       pattern="[0-9]{5}"
+                                       pattern="[A-Za-z0-9]{5}"
                                        required
                                        autocomplete="off">
-                                <div class="form-text">5位数字SKU编码</div>
+                                <div class="input-icon">
+                                    <i class="bi bi-upc-scan"></i>
+                                </div>
+                                <div class="form-text">5位字母或数字组合的SKU编码</div>
                                 <div id="sku-suggestions" class="list-group position-absolute w-100" style="display: none; z-index: 1000;"></div>
                             </div>
                             <div class="col-12 col-md-6">
@@ -568,9 +591,6 @@
                 <div class="card">
                     <div class="card-header bg-warning text-white">
                         <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-1"></i>临期/过期商品列表</h5>
-                        <button class="btn btn-sm btn-light refresh-btn" onclick="loadExpiringProducts()">
-                            <i class="bi bi-arrow-clockwise"></i>
-                        </button>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -611,9 +631,6 @@
                     <div class="card-header bg-info text-white">
                         <h5 class="mb-0"><i class="bi bi-list-ul me-1"></i>库存商品列表</h5>
                         <small class="opacity-75">按剩余保质期排序（从少到多）</small>
-                        <button class="btn btn-sm btn-light refresh-btn" onclick="loadAllProducts()">
-                            <i class="bi bi-arrow-clockwise"></i>
-                        </button>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -655,15 +672,12 @@
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
                                 <label for="newSku" class="form-label">商品SKU编码 <span class="text-danger">*</span></label>
-                                <input type="tel" 
-                                       inputmode="numeric"
-                                       class="form-control" 
-                                       id="newSku" 
-                                       placeholder="输入5位数字SKU编码" 
+                                <input type="text" class="form-control" id="newSku" 
+                                       placeholder="输入5位SKU编码" 
                                        maxlength="5"
-                                       pattern="[0-9]{5}"
+                                       pattern="[A-Za-z0-9]{5}"
                                        required>
-                                <div class="form-text">5位数字，不可重复</div>
+                                <div class="form-text">5位字母或数字组合，不可重复</div>
                             </div>
                             <div class="col-12 col-md-6">
                                 <label for="newName" class="form-label">商品名称 <span class="text-danger">*</span></label>
@@ -704,20 +718,8 @@
                 </div>
                 
                 <div class="card mt-3">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <div class="card-header bg-light">
                         <h5 class="mb-0"><i class="bi bi-database me-1"></i>商品数据库</h5>
-                        <div class="search-box d-flex align-items-center">
-                            <input type="tel" 
-                                   inputmode="numeric"
-                                   class="form-control form-control-sm me-2" 
-                                   id="productSearch" 
-                                   placeholder="搜索SKU"
-                                   style="width: 150px;"
-                                   maxlength="5">
-                            <button class="btn btn-sm btn-outline-secondary refresh-btn" onclick="loadProductDatabase()">
-                                <i class="bi bi-arrow-clockwise"></i>
-                            </button>
-                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -750,14 +752,14 @@
     
     <!-- 删除确认模态框 -->
     <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-1"></i> 确认删除</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" id="modalBody">
-                    确定要删除这条记录吗？此操作不可恢复。
+                    <!-- 内容由JavaScript动态填充 -->
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
