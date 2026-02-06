@@ -21,8 +21,8 @@ document.addEventListener('DOMContentLoaded', function() {
             closeAllModals();
         }
         
-        // Enter 键导航
-        if (e.key === 'Enter') {
+        // Enter 键导航（仅PC端）
+        if (e.key === 'Enter' && !isMobileDevice()) {
             handleEnterNavigation(e);
         }
     });
@@ -33,6 +33,11 @@ function initApp() {
     // 设置生产日期最大值为今天（中国时间）
     const todayChina = getChinaDate();
     document.getElementById('productionDate').max = todayChina;
+    
+    // 添加移动端特定样式
+    if (isMobileDevice()) {
+        addMobileStyles();
+    }
     
     // 绑定事件监听器
     bindEvents();
@@ -75,6 +80,83 @@ function bindEvents() {
     // 标签页切换事件
     document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
         tab.addEventListener('shown.bs.tab', handleTabSwitch);
+    });
+    
+    // 绑定删除按钮事件（事件委托）
+    bindDeleteEvents();
+    
+    // 移动端触摸事件
+    if (isMobileDevice()) {
+        addTouchEvents();
+    }
+}
+
+// 绑定删除事件（事件委托）
+function bindDeleteEvents() {
+    document.addEventListener('click', function(e) {
+        const deleteBtn = e.target.closest('.btn-outline-danger');
+        if (!deleteBtn) return;
+        
+        // 检查是否有tr父元素
+        const row = deleteBtn.closest('tr');
+        if (!row) return;
+        
+        // 获取按钮的onclick属性
+        const onclickAttr = deleteBtn.getAttribute('onclick');
+        if (!onclickAttr) return;
+        
+        // 解析onclick中的参数
+        const match = onclickAttr.match(/showDeleteConfirm\(([^)]+)\)/);
+        if (!match) return;
+        
+        const params = match[1].split(',').map(param => param.trim());
+        const id = parseInt(params[0]);
+        
+        if (!id) return;
+        
+        // 获取表格类型
+        const table = row.closest('table');
+        let isProduct = false;
+        
+        if (table) {
+            const tableId = table.parentElement.parentElement.id;
+            if (tableId === 'productDatabaseTable') {
+                isProduct = true;
+            }
+        }
+        
+        // 从行中获取数据
+        const cells = row.querySelectorAll('td');
+        if (cells.length < 6) return;
+        
+        let recordData = {};
+        
+        if (isProduct) {
+            // 商品数据库表格
+            recordData = {
+                sku: cells[0].textContent.trim(),
+                name: cells[1].textContent.trim(),
+                shelf_life: parseInt(cells[2].textContent.trim()) || 0,
+                reminder_days: parseInt(cells[3].textContent.trim()) || 0,
+                location: cells[4].querySelector('.location-badge')?.textContent.trim() || ''
+            };
+        } else {
+            // 库存记录表格
+            const productionDate = cells[3].textContent.trim();
+            const shelfLife = parseInt(document.getElementById('shelfLife').value) || 0;
+            const reminderDays = parseInt(document.getElementById('reminderDays').value) || 0;
+            
+            recordData = {
+                sku: cells[0].textContent.trim(),
+                name: cells[1].textContent.trim(),
+                location: cells[2].querySelector('.location-badge')?.textContent.trim() || '',
+                production_date: productionDate,
+                shelf_life: shelfLife,
+                reminder_days: reminderDays
+            };
+        }
+        
+        showDeleteConfirm(id, recordData, isProduct);
     });
 }
 
@@ -135,6 +217,13 @@ function clearSkuInput() {
     skuInput.focus();
     clearProductFields();
     highlightElement(skuInput);
+    
+    // 移动端优化：关闭键盘（如果已打开）
+    if (isMobileDevice()) {
+        setTimeout(() => {
+            skuInput.blur();
+        }, 100);
+    }
 }
 
 // 处理SKU输入
@@ -153,8 +242,27 @@ async function handleSkuInput(e) {
             const dateInput = document.getElementById('productionDate');
             if (dateInput && !dateInput.disabled) {
                 dateInput.focus();
-                dateInput.showPicker(); // 自动弹出日期选择器
+                
+                // 移动端兼容：只在支持的设备上调用 showPicker()
+                if (dateInput.showPicker && isMobileDevice()) {
+                    try {
+                        dateInput.showPicker();
+                    } catch (error) {
+                        console.log('移动端日期选择器不支持自动弹出');
+                        // 在移动端显示提示
+                        showMobileDateHint();
+                    }
+                } else if (dateInput.showPicker) {
+                    // PC端正常调用
+                    dateInput.showPicker();
+                }
+                
                 highlightElement(dateInput);
+                
+                // 如果是移动端，滚动到日期输入框可见
+                if (isMobileDevice()) {
+                    dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             }
         }, 300);
     } else {
@@ -169,12 +277,23 @@ function handleDateChange() {
     if (productionDate) {
         calculateDates();
         
+        // 移除移动端提示（如果存在）
+        const hint = document.querySelector('.mobile-hint');
+        if (hint) {
+            hint.remove();
+        }
+        
         // 自动跳转到保存按钮
         setTimeout(() => {
             const saveBtn = document.getElementById('saveBtn');
             if (saveBtn && !saveBtn.disabled) {
                 saveBtn.focus();
                 highlightElement(saveBtn);
+                
+                // 如果是移动端，滚动到保存按钮可见
+                if (isMobileDevice()) {
+                    saveBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             }
         }, 300);
     }
@@ -191,6 +310,11 @@ async function handleSave() {
             skuInput.value = '';
             skuInput.focus();
             highlightElement(skuInput);
+            
+            // 如果是移动端，滚动到SKU输入框可见
+            if (isMobileDevice()) {
+                skuInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }
     }, 500);
 }
@@ -205,6 +329,11 @@ function highlightElement(element) {
 
 // 处理Enter键导航
 function handleEnterNavigation(e) {
+    // 移动端键盘处理
+    if (isMobileDevice()) {
+        return;
+    }
+    
     const activeElement = document.activeElement;
     
     if (activeElement.id === 'skuInput' && activeElement.value.length === 5) {
@@ -212,7 +341,9 @@ function handleEnterNavigation(e) {
         const dateInput = document.getElementById('productionDate');
         if (dateInput && !dateInput.disabled) {
             dateInput.focus();
-            dateInput.showPicker();
+            if (dateInput.showPicker && !isMobileDevice()) {
+                dateInput.showPicker();
+            }
         }
     } else if (activeElement.id === 'productionDate') {
         e.preventDefault();
@@ -223,6 +354,118 @@ function handleEnterNavigation(e) {
     } else if (activeElement.id === 'saveBtn') {
         e.preventDefault();
         saveBtn.click();
+    }
+}
+
+// 检测是否为移动设备
+function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+// 添加移动端特定样式
+function addMobileStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        /* 移动端优化样式 */
+        .mobile-hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            width: 90%;
+            max-width: 400px;
+            animation: slideUp 0.3s ease-out;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateX(-50%) translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        /* 移动端输入框优化 */
+        .sku-input-group input[type="date"] {
+            font-size: 16px;
+        }
+        
+        /* 移动端焦点优化 */
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.25);
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// 显示移动端日期选择提示
+function showMobileDateHint() {
+    const hint = document.createElement('div');
+    hint.className = 'alert alert-info mobile-hint';
+    hint.innerHTML = `
+        <i class="bi bi-calendar-check me-2"></i>
+        <span>请点击上方日期输入框选择生产日期</span>
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+    
+    // 添加到页面
+    const container = document.querySelector('#query-tab-pane .card-body');
+    if (container) {
+        // 移除已有的提示
+        const existingHint = container.querySelector('.mobile-hint');
+        if (existingHint) {
+            existingHint.remove();
+        }
+        
+        // 添加新提示
+        container.appendChild(hint);
+        
+        // 5秒后自动移除
+        setTimeout(() => {
+            if (hint.parentNode) {
+                hint.remove();
+            }
+        }, 5000);
+    }
+}
+
+// 添加移动端触摸事件
+function addTouchEvents() {
+    // SKU输入完成后的提示
+    const skuInput = document.getElementById('skuInput');
+    skuInput.addEventListener('input', function() {
+        if (this.value.length === 5) {
+            // 显示触摸提示
+            setTimeout(() => {
+                if (this.value.length === 5) {
+                    showMobileDateHint();
+                }
+            }, 500);
+        }
+    });
+    
+    // 日期输入框触摸优化
+    const dateInput = document.getElementById('productionDate');
+    dateInput.addEventListener('touchstart', function() {
+        this.focus();
+    });
+    
+    // 保存按钮触摸优化
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('touchstart', function() {
+            this.classList.add('active');
+        });
+        
+        saveBtn.addEventListener('touchend', function() {
+            this.classList.remove('active');
+        });
     }
 }
 
@@ -249,11 +492,18 @@ function showSkuSuggestions() {
     
     suggestions.innerHTML = filtered.map(p => `
         <button type="button" class="list-group-item list-group-item-action" 
-                onclick="selectSku('${p.sku}', '${p.name.replace(/'/g, "\\'")}')">
+                onclick="selectSku('${p.sku}', '${escapeHtml(p.name)}')">
             <strong>${p.sku}</strong> - ${p.name}
         </button>
     `).join('');
     suggestions.style.display = 'block';
+}
+
+// HTML转义
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // 选择SKU
@@ -676,7 +926,7 @@ function renderExpiringTable(records) {
                 <td>${getStatusBadge(remainingDays, record.reminder_days)}</td>
                 <td>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${record.id}, ${JSON.stringify(record)})">
+                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${record.id})">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -741,7 +991,7 @@ function renderAllTable(records) {
                 <td>${getStatusBadge(remainingDays, record.reminder_days)}</td>
                 <td>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${record.id}, ${JSON.stringify(record)})">
+                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${record.id})">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -785,7 +1035,7 @@ function renderProductDatabaseTable(products) {
                         <button class="btn btn-outline-primary" onclick="showEditModal(${product.id})">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${product.id}, ${JSON.stringify(product)}, true)">
+                        <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${product.id}, null, true)">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -798,93 +1048,125 @@ function renderProductDatabaseTable(products) {
 }
 
 // 显示删除确认模态框（显示商品详情）
-function showDeleteConfirm(id, recordData, isProduct = false) {
+function showDeleteConfirm(id, recordData = null, isProduct = false) {
     deleteRecordId = id;
-    const isProductDb = isProduct;
+    
+    // 如果是商品数据库删除，需要获取完整商品信息
+    if (isProduct && !recordData) {
+        // 从当前商品列表中查找
+        const product = currentProducts.find(p => p.id === id);
+        if (product) {
+            recordData = product;
+        }
+    }
+    
+    // 如果是库存记录删除，需要获取完整记录信息
+    if (!isProduct && !recordData) {
+        // 从当前记录列表中查找
+        const record = currentRecords.find(r => r.id === id);
+        if (record) {
+            recordData = record;
+        }
+    }
     
     let detailsHtml = '';
     
-    if (isProductDb) {
+    if (isProduct) {
         // 商品数据库中的商品
-        detailsHtml = `
-            <div class="delete-details">
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">SKU：</span>
-                    <span class="delete-detail-value">${recordData.sku}</span>
+        if (recordData) {
+            detailsHtml = `
+                <div class="delete-details">
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">SKU：</span>
+                        <span class="delete-detail-value">${recordData.sku || ''}</span>
+                    </div>
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">名称：</span>
+                        <span class="delete-detail-value">${recordData.name || ''}</span>
+                    </div>
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">库位：</span>
+                        <span class="delete-detail-value"><span class="badge location-badge">${recordData.location || ''}</span></span>
+                    </div>
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">保质期：</span>
+                        <span class="delete-detail-value">${recordData.shelf_life || 0} 天</span>
+                    </div>
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">提醒天数：</span>
+                        <span class="delete-detail-value">${recordData.reminder_days || 0} 天</span>
+                    </div>
                 </div>
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">名称：</span>
-                    <span class="delete-detail-value">${recordData.name}</span>
-                </div>
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">库位：</span>
-                    <span class="delete-detail-value"><span class="badge location-badge">${recordData.location}</span></span>
-                </div>
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">保质期：</span>
-                    <span class="delete-detail-value">${recordData.shelf_life} 天</span>
-                </div>
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">提醒天数：</span>
-                    <span class="delete-detail-value">${recordData.reminder_days} 天</span>
-                </div>
-            </div>
-        `;
+            `;
+        }
     } else {
         // 库存记录中的商品
-        // 计算到期日期和剩余天数（使用中国时间）
-        const productionDate = new Date(recordData.production_date + 'T00:00:00+08:00');
-        const expiryDate = new Date(productionDate);
-        expiryDate.setDate(productionDate.getDate() + recordData.shelf_life);
-        
-        const remainingDays = calculateRemainingDays(recordData.production_date, recordData.shelf_life);
-        const statusBadge = getStatusBadge(remainingDays, recordData.reminder_days);
-        
-        detailsHtml = `
-            <div class="delete-details">
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">SKU：</span>
-                    <span class="delete-detail-value">${recordData.sku}</span>
+        if (recordData) {
+            // 计算到期日期和剩余天数（使用中国时间）
+            const productionDate = recordData.production_date ? 
+                new Date(recordData.production_date + 'T00:00:00+08:00') : new Date();
+            const expiryDate = new Date(productionDate);
+            expiryDate.setDate(productionDate.getDate() + (recordData.shelf_life || 0));
+            
+            const remainingDays = calculateRemainingDays(recordData.production_date, recordData.shelf_life);
+            const statusBadge = getStatusBadge(remainingDays, recordData.reminder_days);
+            
+            detailsHtml = `
+                <div class="delete-details">
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">SKU：</span>
+                        <span class="delete-detail-value">${recordData.sku || ''}</span>
+                    </div>
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">名称：</span>
+                        <span class="delete-detail-value">${recordData.name || ''}</span>
+                    </div>
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">库位：</span>
+                        <span class="delete-detail-value"><span class="badge location-badge">${recordData.location || ''}</span></span>
+                    </div>
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">生产日期：</span>
+                        <span class="delete-detail-value">${formatDate(productionDate)}</span>
+                    </div>
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">到期日期：</span>
+                        <span class="delete-detail-value">${formatDate(expiryDate)}</span>
+                    </div>
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">剩余天数：</span>
+                        <span class="delete-detail-value fw-bold ${remainingDays <= 0 ? 'text-danger' : 
+                                                  remainingDays <= (recordData.reminder_days || 0) ? 'text-warning' : 
+                                                  'text-success'}">
+                            ${remainingDays} 天
+                        </span>
+                    </div>
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">状态：</span>
+                        <span class="delete-detail-value">${statusBadge}</span>
+                    </div>
                 </div>
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">名称：</span>
-                    <span class="delete-detail-value">${recordData.name}</span>
+            `;
+        } else {
+            // 如果没有记录数据，显示基本信息
+            detailsHtml = `
+                <div class="delete-details">
+                    <div class="delete-detail-item">
+                        <span class="delete-detail-label">记录ID：</span>
+                        <span class="delete-detail-value">${id}</span>
+                    </div>
                 </div>
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">库位：</span>
-                    <span class="delete-detail-value"><span class="badge location-badge">${recordData.location}</span></span>
-                </div>
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">生产日期：</span>
-                    <span class="delete-detail-value">${formatDate(productionDate)}</span>
-                </div>
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">到期日期：</span>
-                    <span class="delete-detail-value">${formatDate(expiryDate)}</span>
-                </div>
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">剩余天数：</span>
-                    <span class="delete-detail-value fw-bold ${remainingDays <= 0 ? 'text-danger' : 
-                                              remainingDays <= recordData.reminder_days ? 'text-warning' : 
-                                              'text-success'}">
-                        ${remainingDays} 天
-                    </span>
-                </div>
-                <div class="delete-detail-item">
-                    <span class="delete-detail-label">状态：</span>
-                    <span class="delete-detail-value">${statusBadge}</span>
-                </div>
-            </div>
-        `;
+            `;
+        }
     }
     
     document.getElementById('modalBody').innerHTML = `
-        <p>确定要删除以下${isProductDb ? '商品' : '记录'}吗？此操作不可恢复。</p>
+        <p>确定要删除以下${isProduct ? '商品' : '记录'}吗？此操作不可恢复。</p>
         ${detailsHtml}
         <p class="text-danger mb-0 mt-2">
             <small>
                 <i class="bi bi-exclamation-triangle me-1"></i>
-                ${isProductDb ? '删除商品将同时删除所有相关记录！' : '删除后数据将无法恢复！'}
+                ${isProduct ? '删除商品将同时删除所有相关记录！' : '删除后数据将无法恢复！'}
             </small>
         </p>
     `;
@@ -1022,6 +1304,8 @@ function formatDate(date) {
 
 // 计算剩余天数（使用中国时间）
 function calculateRemainingDays(productionDate, shelfLife) {
+    if (!productionDate || !shelfLife) return 0;
+    
     const prodDate = new Date(productionDate + 'T00:00:00+08:00');
     const expiryDate = new Date(prodDate);
     expiryDate.setDate(prodDate.getDate() + shelfLife);
