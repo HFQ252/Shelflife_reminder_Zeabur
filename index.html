@@ -127,6 +127,7 @@
             border-bottom: 2px solid #dee2e6;
             background-color: #f8f9fa;
             padding: 0.75rem 1rem;
+            white-space: nowrap;
         }
         
         .table tbody td {
@@ -279,6 +280,26 @@
             border-radius: 4px;
         }
         
+        /* 商品名称单元格优化 - 修复一个字符一行的问题 */
+        .table tbody td:nth-child(2) {
+            max-width: 250px;
+            min-width: 150px;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            -webkit-hyphens: auto;
+            -ms-hyphens: auto;
+            hyphens: auto;
+            line-height: 1.5;
+        }
+        
+        /* 表格整体文字换行优化 */
+        .table td, .table th {
+            word-break: normal !important;
+            overflow-wrap: anywhere !important;
+        }
+        
         /* 移动端优化 */
         @media (max-width: 768px) {
             .container {
@@ -309,14 +330,28 @@
             
             .table thead th,
             .table tbody td {
-                padding: 0.5rem;
+                padding: 0.5rem 0.3rem;
+            }
+            
+            /* 移动端商品名称列优化 */
+            .table tbody td:nth-child(2) {
+                max-width: 180px !important;
+                min-width: 100px !important;
+                font-size: 0.9rem !important;
+                line-height: 1.4 !important;
             }
             
             /* 移动端表格文字换行 */
             .table td, .table th {
-                word-break: break-word;
-                overflow-wrap: break-word;
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
                 white-space: normal !important;
+            }
+            
+            /* SKU和库位列保持不换行 */
+            .table tbody td:first-child,
+            .table tbody td:nth-child(3) {
+                white-space: nowrap !important;
             }
             
             .btn {
@@ -348,6 +383,13 @@
             .btn-group .btn {
                 width: 100%;
                 border-radius: 6px;
+            }
+            
+            /* 超小屏幕商品名称列优化 */
+            .table tbody td:nth-child(2) {
+                max-width: 140px !important;
+                min-width: 80px !important;
+                font-size: 0.85rem !important;
             }
         }
         
@@ -390,23 +432,6 @@
             font-weight: 600;
             margin-bottom: 0.5rem;
         }
-        
-        /* .sku-input-group {
-            position: relative;
-        }
-        
-        .sku-input-group .form-control {
-            padding-right: 45px;
-        }
-        
-        .sku-input-group .input-icon {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--primary-color);
-            font-size: 1.2rem;
-        } */
         
         /* 自动跳转焦点样式 */
         .focus-highlight {
@@ -451,95 +476,48 @@
             text-align: right;
             color: #495057;
         }
-        /* 显示换行优化 */
-        .table td:nth-child(2) { /* 第二列是商品名称 */
-            max-width: 200px !important;
-            word-break: break-word !important;
-            overflow-wrap: break-word !important;
-            white-space: normal !important;
-        }
         
-        @media (max-width: 768px) {
-        .table td:nth-child(2) {
-                max-width: 150px !important;
-            }
-        }
-        
-        @media (max-width: 576px) {
-        .table td:nth-child(2) {
-                max-width: 120px !important;
-            }
-        }
-        /* 商品名称单元格优化 */
-        .product-name-cell {
-            max-width: 200px;
-            min-width: 120px;
-            word-break: break-word;
-            overflow-wrap: break-word;
-            white-space: normal;
-            line-height: 1.4;
-        }
-
-        /* 固定宽度列 */
+        /* 表格列宽固定 */
         .fixed-width-sku {
             width: 120px;
             min-width: 120px;
-            max-width: 120px;
-            white-space: nowrap;
         }
         
         .fixed-width-location {
             width: 120px;
             min-width: 120px;
-            max-width: 120px;
-            white-space: nowrap;
         }
         
         .fixed-width-date {
             width: 110px;
             min-width: 110px;
-            max-width: 110px;
-            white-space: nowrap;
         }
         
         .fixed-width-days {
             width: 100px;
             min-width: 100px;
-            max-width: 100px;
-            white-space: nowrap;
         }
         
         .fixed-width-status {
             width: 100px;
             min-width: 100px;
-            max-width: 100px;
-            white-space: nowrap;
         }
         
         .fixed-width-actions {
             width: 150px;
             min-width: 150px;
-            max-width: 150px;
-            white-space: nowrap;
         }
         
-        /* 移动端调整 */
+        /* 移动端调整固定宽度 */
         @media (max-width: 768px) {
-            .product-name-cell {
-                max-width: 150px;
-                min-width: 80px;
-                font-size: 0.85rem;
-            }
-            
             .fixed-width-sku,
             .fixed-width-location,
             .fixed-width-date,
             .fixed-width-days,
             .fixed-width-status,
             .fixed-width-actions {
-                width: auto;
-                min-width: auto;
-                max-width: none;
+                width: auto !important;
+                min-width: auto !important;
             }
         }
     </style>
@@ -594,7 +572,7 @@
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
-                            <div class="col-12 col-md-6 sku-input-group">
+                            <div class="col-12 col-md-6">
                                 <label for="skuInput" class="form-label">商品SKU编码 <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="skuInput" 
                                        placeholder="输入5位SKU编码" 
@@ -602,9 +580,6 @@
                                        pattern="[A-Za-z0-9]{5}"
                                        required
                                        autocomplete="off">
-                                <!-- <div class="input-icon">
-                                    <i class="bi bi-upc-scan"></i>
-                                </div> -->
                                 <div class="form-text">5位字母或数字组合的SKU编码</div>
                                 <div id="sku-suggestions" class="list-group position-absolute w-100" style="display: none; z-index: 1000;"></div>
                             </div>
@@ -682,20 +657,25 @@
                 <div class="card">
                     <div class="card-header bg-warning text-white">
                         <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-1"></i>临期/过期商品列表</h5>
+                        <div class="btn-group" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%);">
+                            <button class="btn btn-sm btn-light" onclick="loadExpiringProducts()">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-striped table-hover mb-0">
                                 <thead class="table-warning">
                                     <tr>
-                                        <th width="120">SKU</th>
+                                        <th class="fixed-width-sku">SKU</th>
                                         <th>商品名称</th>
-                                        <th width="120">库位</th>
-                                        <th width="110">生产日期</th>
-                                        <th width="110">到期日期</th>
-                                        <th width="100">剩余天数</th>
-                                        <th width="100">状态</th>
-                                        <th width="150">操作</th>
+                                        <th class="fixed-width-location">库位</th>
+                                        <th class="fixed-width-date">生产日期</th>
+                                        <th class="fixed-width-date">到期日期</th>
+                                        <th class="fixed-width-days">剩余天数</th>
+                                        <th class="fixed-width-status">状态</th>
+                                        <th class="fixed-width-actions">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="expiringTable">
@@ -722,20 +702,25 @@
                     <div class="card-header bg-info text-white">
                         <h5 class="mb-0"><i class="bi bi-list-ul me-1"></i>库存商品列表</h5>
                         <small class="opacity-75">按剩余保质期排序（从少到多）</small>
+                        <div class="btn-group" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%);">
+                            <button class="btn btn-sm btn-light" onclick="loadAllProducts()">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-striped table-hover mb-0">
                                 <thead class="table-info">
                                     <tr>
-                                        <th width="120">SKU</th>
+                                        <th class="fixed-width-sku">SKU</th>
                                         <th>商品名称</th>
-                                        <th width="120">库位</th>
-                                        <th width="110">生产日期</th>
-                                        <th width="110">到期日期</th>
-                                        <th width="100">剩余天数</th>
-                                        <th width="100">状态</th>
-                                        <th width="150">操作</th>
+                                        <th class="fixed-width-location">库位</th>
+                                        <th class="fixed-width-date">生产日期</th>
+                                        <th class="fixed-width-date">到期日期</th>
+                                        <th class="fixed-width-days">剩余天数</th>
+                                        <th class="fixed-width-status">状态</th>
+                                        <th class="fixed-width-actions">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="allTable">
@@ -811,18 +796,23 @@
                 <div class="card mt-3">
                     <div class="card-header bg-light">
                         <h5 class="mb-0"><i class="bi bi-database me-1"></i>商品数据库</h5>
+                        <div class="btn-group" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%);">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="loadProductDatabase()">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-striped table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th width="120">SKU</th>
+                                        <th class="fixed-width-sku">SKU</th>
                                         <th>商品名称</th>
-                                        <th width="100">保质期(天)</th>
-                                        <th width="120">临期提醒(天)</th>
-                                        <th width="120">库位</th>
-                                        <th width="150">操作</th>
+                                        <th class="fixed-width-days">保质期(天)</th>
+                                        <th class="fixed-width-days">临期提醒(天)</th>
+                                        <th class="fixed-width-location">库位</th>
+                                        <th class="fixed-width-actions">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="productDatabaseTable">
