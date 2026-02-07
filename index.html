@@ -452,7 +452,7 @@
             color: #495057;
         }
         /* 显示换行优化 */
-            .table td:nth-child(2) { /* 第二列是商品名称 */
+        .table td:nth-child(2) { /* 第二列是商品名称 */
             max-width: 200px !important;
             word-break: break-word !important;
             overflow-wrap: break-word !important;
@@ -460,14 +460,86 @@
         }
         
         @media (max-width: 768px) {
-            .table td:nth-child(2) {
+        .table td:nth-child(2) {
                 max-width: 150px !important;
             }
         }
         
         @media (max-width: 576px) {
-            .table td:nth-child(2) {
+        .table td:nth-child(2) {
                 max-width: 120px !important;
+            }
+        }
+        /* 商品名称单元格优化 */
+        .product-name-cell {
+            max-width: 200px;
+            min-width: 120px;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+            line-height: 1.4;
+        }
+
+        /* 固定宽度列 */
+        .fixed-width-sku {
+            width: 120px;
+            min-width: 120px;
+            max-width: 120px;
+            white-space: nowrap;
+        }
+        
+        .fixed-width-location {
+            width: 120px;
+            min-width: 120px;
+            max-width: 120px;
+            white-space: nowrap;
+        }
+        
+        .fixed-width-date {
+            width: 110px;
+            min-width: 110px;
+            max-width: 110px;
+            white-space: nowrap;
+        }
+        
+        .fixed-width-days {
+            width: 100px;
+            min-width: 100px;
+            max-width: 100px;
+            white-space: nowrap;
+        }
+        
+        .fixed-width-status {
+            width: 100px;
+            min-width: 100px;
+            max-width: 100px;
+            white-space: nowrap;
+        }
+        
+        .fixed-width-actions {
+            width: 150px;
+            min-width: 150px;
+            max-width: 150px;
+            white-space: nowrap;
+        }
+        
+        /* 移动端调整 */
+        @media (max-width: 768px) {
+            .product-name-cell {
+                max-width: 150px;
+                min-width: 80px;
+                font-size: 0.85rem;
+            }
+            
+            .fixed-width-sku,
+            .fixed-width-location,
+            .fixed-width-date,
+            .fixed-width-days,
+            .fixed-width-status,
+            .fixed-width-actions {
+                width: auto;
+                min-width: auto;
+                max-width: none;
             }
         }
     </style>
