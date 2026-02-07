@@ -451,6 +451,25 @@
             text-align: right;
             color: #495057;
         }
+        /* 显示换行优化 */
+            .table td:nth-child(2) { /* 第二列是商品名称 */
+            max-width: 200px !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            white-space: normal !important;
+        }
+        
+        @media (max-width: 768px) {
+            .table td:nth-child(2) {
+                max-width: 150px !important;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .table td:nth-child(2) {
+                max-width: 120px !important;
+            }
+        }
     </style>
 </head>
 <body>
