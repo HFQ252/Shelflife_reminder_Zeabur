@@ -520,6 +520,29 @@
                 min-width: auto !important;
             }
         }
+        /* 终极简单修复 - 复制这个到文件末尾即可 */
+            .table td {
+                white-space: normal !important;
+            }
+            
+            /* 除了商品名称，其他列都不换行 */
+            .table td:not(:nth-child(2)) {
+                white-space: nowrap !important;
+            }
+            
+            /* 商品名称可以换行 */
+            .table td:nth-child(2) {
+                white-space: normal !important;
+                word-break: break-word !important;
+                max-width: 250px;
+            }
+            
+            /* 移动端调整 */
+            @media (max-width: 768px) {
+                .table td:nth-child(2) {
+                    max-width: 180px;
+                }
+            }
     </style>
 </head>
 <body>
